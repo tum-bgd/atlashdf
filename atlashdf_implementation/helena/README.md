@@ -6,3 +6,8 @@ The helena tool functionalities (growing)
 
 - helena import <osm file> <atlasgroup> --representation=immediate
 
+
+
+# Dependencies / Libraries
+
+- argparse.hpp: Parsing command line arguments in a good way (C++11)
