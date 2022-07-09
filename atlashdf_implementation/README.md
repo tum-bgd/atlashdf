@@ -1,11 +1,7 @@
 # AtlasHDF Implementation
 
-## Introduction
-
-## Schema for File Collections
-
-## Schema for OpenStreetMap
-
-## Schema for Sentinel 2 Scenes
-
-## Schema for Sentinel2 Analysis Ready Data Patches
+## Batch Resizing (for supporting target_size parameter)
+Below, quant_dataset is a batch of (N, 64,64,13) and goes to (N,224,224,13).
+```
+tf.image.resize(quant_dataset, [224,224])
+```
