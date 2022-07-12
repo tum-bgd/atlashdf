@@ -6,6 +6,9 @@
 using namespace osmpbfreader;
 
 #include "atlashdftools.h"
+#include<algorithm>
+#include<iomanip>
+#include<sstream>
 
 // from osmpbfreader.h
 //typedef std::map<std::string, std::string> Tags;
@@ -21,10 +24,47 @@ std::string to_json(const Tags &tags)
     return json_str;
 }
 
+std::string to_json(const std::vector<uint64_t> &refs)
+{
+    std::string s = std::accumulate(std::begin(refs), std::end(refs), std::string(),
+                                [](std::string &ss, const uint64_t &v)
+                                {
+				    std::string s = std::to_string(v);
+                                    return ss.empty() ? s : ss + "," + s;
+                                });
+    return s;
+}
 
 
 
-struct interrupt{};
+std::string to_json(const References &refs)
+{
+    // a reference is a link to a thing that is node, way, relation and can have a role(string)
+      //OSMPBF::Relation_MemberType_NODE = 0,
+ // Relation_MemberType_WAY = 1,
+ // Relation_MemberType_RELATION = 2
+ static  std::map<int, std::string> type2string {
+   {0, "node"},{1,"way"},{2,"relation"}
+ };
+ std::string s = std::accumulate(std::begin(refs), std::end(refs), std::string(),
+                                [](std::string &ss, const Reference &r)
+                                {
+				    std::stringstream s;
+				    s << "{\"type\":";
+				    s << std::quoted(type2string[r.member_type]);
+				    s << ",\"member_id\":" << r.member_id ;
+				    s << ",\"role\": ";
+				    s << std::quoted(r.role);
+				    s << "}";
+                                    return ss.empty() ? s.str() : ss + "," + s.str();
+                                });
+   return "[" + s + "]";
+  
+
+}
+
+
+struct interrupt{}; // only for debug runs where we stop
 
 
 struct Visitor {
@@ -35,15 +75,30 @@ struct Visitor {
     {
 	
     }
-
+    void progress (int bytes_read, int bytes_available)
+    {
+        static double last;
+	double now = (double) bytes_read / (double) bytes_available;
+	
+	if (now - last > 0.1 || bytes_read == bytes_available || bytes_read == 0){
+	    std::cout << "10 % Progress found" << now <<  " which is " << now << std::endl;
+	    last = now;
+	}
+    }
     void node_callback(uint64_t osmid, double lon, double lat, const Tags &tags){
 	imwriter.node(osmid, {lon,lat}, to_json(tags));
 	N++;
-/*	if (N > 10)
-	    throw(interrupt());*/
     }
-    void way_callback(uint64_t osmid, const Tags &tags, const std::vector<uint64_t> &refs){}
-    void relation_callback(uint64_t osmid, const Tags &tags, const References &refs){}
+    void way_callback(uint64_t osmid, const Tags &tags, const std::vector<uint64_t> &refs){
+	imwriter.way(osmid, to_json(refs), to_json(tags));
+
+
+    }
+    void relation_callback(uint64_t osmid, const Tags &tags, const References &refs){
+	imwriter.relation(osmid, to_json(refs), to_json(tags));
+	
+    }
+    
 };
 
 void import_osm_immediate(std::string input, std::string output)

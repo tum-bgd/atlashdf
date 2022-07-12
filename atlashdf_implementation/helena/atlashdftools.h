@@ -56,6 +56,7 @@ struct AtlasGroup
 struct ChunkedOSMImmediateWriter
 {
     AtlasGroup g;
+    const size_t blocksize=1*1024*1024; // 1 MB cache per type 
     ChunkedOSMImmediateWriter(AtlasGroup &_g): g(_g){
 	// check or create dataspaces
 	std::cout << "ChunkedOSMImmediateWriter" << std::endl;
@@ -76,27 +77,54 @@ struct ChunkedOSMImmediateWriter
 	   g().createDataSet("nodes_attr", dataspace, HighFive::AtomicType<std::string>(), props);  
 	   g().createDataSet("ways", dataspace, HighFive::AtomicType<uint64_t>(), props);  
 	   g().createDataSet("ways_attr", dataspace, HighFive::AtomicType<std::string>(), props);  
+	   g().createDataSet("ways_refs", dataspace, HighFive::AtomicType<std::string>(), props);  
 	   g().createDataSet("relations", dataspace, HighFive::AtomicType<uint64_t>(), props);  
 	   g().createDataSet("relations_attr", dataspace, HighFive::AtomicType<std::string>(), props);  
+	   g().createDataSet("relations_refs", dataspace, HighFive::AtomicType<std::string>(), props);  
 	   }
     };
 
     ~ChunkedOSMImmediateWriter(){
 	flush_nodes(); // write all nodes to disk
+	flush_ways();
+	flush_rels();
     }
     std::vector<std::vector<double>> coord_cache;
     std::vector<std::string> node_attribs;
     std::vector<uint64_t> node_ids;
     void node(uint64_t id, std::vector<double> coords, std::string attrib)
     {
-	if (coord_cache.size() > 1024 * 16) {
+	if (coord_cache.size() > blocksize) {
 	  flush_nodes();
 	}
 	node_ids.push_back(id);
 	coord_cache.push_back(coords);
 	node_attribs.push_back(attrib);
     }
+    std::vector<uint64_t> way_ids;
+    std::vector<std::string> way_refs;
+    std::vector<std::string> way_attribs;
+    
+    void way (uint64_t id, std::string refs, std::string attrib)
+    {
+	if (way_ids.size() > blocksize)
+	   flush_ways();
+	way_ids.push_back(id);
+	way_attribs.push_back(attrib);
+	way_refs.push_back(refs);
+    }
+    std::vector<uint64_t> rel_ids;
+    std::vector<std::string> rel_refs;
+    std::vector<std::string> rel_attribs;
 
+    void relation (uint64_t id, std::string refs, std::string attrib)
+    {
+	if (rel_ids.size() > blocksize)
+	   flush_rels();
+	rel_ids.push_back(id);
+	rel_attribs.push_back(attrib);
+	rel_refs.push_back(refs);
+    }
 
     
     void flush_nodes()
@@ -108,7 +136,28 @@ struct ChunkedOSMImmediateWriter
 	flush_array(g(),"nodes",node_ids,1); // last param is #cols in hdf5
 	node_ids.clear();
     }
+    void flush_ways()
+    {
+	 flush_array(g(),"ways",way_ids,1);
+	 flush_array(g(), "ways_refs",way_refs,1);
+	 flush_array(g(), "ways_attr", way_attribs,1);
+	 way_ids.clear();
+	 way_refs.clear();
+	 way_attribs.clear();
+    
+    }
 
+
+    void flush_rels(){
+	flush_array(g(),"relations",rel_ids,1);
+	flush_array(g(),"relations_attr",rel_attribs,1);
+	flush_array(g(),"relations_refs",rel_refs,1);
+	rel_ids.clear();
+	rel_refs.clear();
+	rel_attribs.clear();
+	
+    }
+    
 };
 
 
