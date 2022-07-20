@@ -1,4 +1,4 @@
-### OSM4EO LULC classficaiton with deep residual convolutional neural networks
+### OSMLULC classficaiton and surface water mapping with deep residual convolutional neural networks
 
 This is the source code repo for the deep learning method within OSMLULC (surface water mapping) work.
 
