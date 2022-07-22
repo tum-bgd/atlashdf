@@ -17,7 +17,8 @@ int main(int argc, char **argv)
    // parse command line arguments
       argparse::ArgumentParser program("helena");
       program.add_argument("-c", "--chunksize")
-	.default_value(size_t(1024))
+        .scan<'d', int>()
+	.default_value(1024)
 	.help("The size of chunks in all dataspaces");
 
       /*program.add_argument("-f", "--filter")
@@ -50,7 +51,7 @@ int main(int argc, char **argv)
 	if (representation == "immediate")
 	{
 	  import_osm_immediate(program.get<std::string>("input"), program.get<std::string>("output"),
-			       program.get<size_t>("chunksize"));
+			       program.get<int>("chunksize"));
 	}
     }else
     {
