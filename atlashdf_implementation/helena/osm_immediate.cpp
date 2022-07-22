@@ -71,7 +71,7 @@ struct Visitor {
     int N=0;
     atlas::AtlasGroup g;
     atlas::ChunkedOSMImmediateWriter imwriter;
-    Visitor(std::string filename, std::string group): g(filename, group), imwriter(g)
+  Visitor(std::string filename, std::string group, size_t chunksize): g(filename, group), imwriter(g, chunksize)
     {
 	
     }
@@ -81,8 +81,11 @@ struct Visitor {
 	double now = (double) bytes_read / (double) bytes_available;
 	
 	if (now - last > 0.1 || bytes_read == bytes_available || bytes_read == 0){
-	    std::cout << "10 % Progress found" << now <<  " which is " << now << std::endl;
+	  std::cout << "10 % Progress found" << now <<  " which is " << now << "\r";
+	  std::cout.flush();
 	    last = now;
+	    if (bytes_read == bytes_available)
+	      std::cout << std::endl;
 	}
     }
     void node_callback(uint64_t osmid, double lon, double lat, const Tags &tags){
@@ -101,10 +104,10 @@ struct Visitor {
     
 };
 
-void import_osm_immediate(std::string input, std::string output)
+void import_osm_immediate(std::string input, std::string output, size_t chunksize)
 {
 
-    Visitor v (output,"osm");
+  Visitor v (output,"osm", chunksize);
     try{
 	read_osm_pbf(input, v);
     }catch (interrupt i)

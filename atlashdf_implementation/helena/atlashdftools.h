@@ -56,8 +56,9 @@ struct AtlasGroup
 struct ChunkedOSMImmediateWriter
 {
     AtlasGroup g;
-    const size_t blocksize=1*1024*1024; // 1 MB cache per type 
-    ChunkedOSMImmediateWriter(AtlasGroup &_g): g(_g){
+    const size_t blocksize=1*1024*1024; // 1 MB cache per type
+    size_t chunksize;
+  ChunkedOSMImmediateWriter(AtlasGroup &_g, size_t _chunksize): g(_g), chunksize(_chunksize){
 	// check or create dataspaces
 	std::cout << "ChunkedOSMImmediateWriter" << std::endl;
 	// here, we just make sure the schema tables exist. The workers will allocate on them
@@ -65,11 +66,11 @@ struct ChunkedOSMImmediateWriter
 	{
 	    HighFive::DataSpace dataspace = HighFive::DataSpace({0, 1}, {HighFive::DataSpace::UNLIMITED,1});
 	    HighFive::DataSetCreateProps props;
-	    props.add(HighFive::Chunking(std::vector<hsize_t>{1024, 1}));
+	    props.add(HighFive::Chunking(std::vector<hsize_t>{chunksize, 1}));
 	    props.add(HighFive::Deflate(9));
 	    HighFive::DataSpace coord_ds = HighFive::DataSpace({0, 2}, {HighFive::DataSpace::UNLIMITED,2});
 	    HighFive::DataSetCreateProps coord_props;
-	    coord_props.add(HighFive::Chunking(std::vector<hsize_t>{1024, 2}));
+	    coord_props.add(HighFive::Chunking(std::vector<hsize_t>{chunksize, 2}));
 	    coord_props.add(HighFive::Deflate(9));
 	   // Create the dataset
 	   g().createDataSet("nodes", dataspace, HighFive::AtomicType<uint64_t>(), props);  
