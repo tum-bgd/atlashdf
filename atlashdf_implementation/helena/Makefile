@@ -9,8 +9,8 @@ PROGRAMS = helena
 
 all: $(PROGRAMS)
 
-helena: main.cpp osm_immediate.cpp 
-	$(CXX) $(CXXFLAGS) -o $@ main.cpp osm_immediate.cpp $(LDFLAGS)
+helena: main.cpp osm_immediate.cpp osm_resolvegeom.cpp 
+	$(CXX) $(CXXFLAGS) -o $@ main.cpp osm_immediate.cpp osm_resolvegeom.cpp $(LDFLAGS)
 
 clean:
 	rm -f *.o core $(PROGRAMS)

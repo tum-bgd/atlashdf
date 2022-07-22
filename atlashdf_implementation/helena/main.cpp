@@ -9,7 +9,7 @@ License: MIT
 #include "argparse.hpp"
 // and the implementations
 #include "osm_immediate.h"
-
+#include "osm_resolvegeom.h"
 
 
 int main(int argc, char **argv)
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	  .default_value(std::string("immediate"));
       program.add_argument("operation").help("<operation>");
       program.add_argument("input").help("<input>");
-      program.add_argument("output").help("<output>");
+      program.add_argument("output").help("<output>").default_value(std::string(""));
 
       try {
 	program.parse_args(argc, argv);
@@ -53,6 +53,10 @@ int main(int argc, char **argv)
 	  import_osm_immediate(program.get<std::string>("input"), program.get<std::string>("output"),
 			       program.get<int>("chunksize"));
 	}
+    }else if(operation == "resolve")
+    {
+	resolve_osm_geometry(program.get<std::string>("input"), program.get<std::string>("output"));
+
     }else
     {
 	std::cerr << "Your operation is not understood or you did not give suitable parameters." << std::endl;
