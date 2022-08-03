@@ -53,6 +53,8 @@ struct AtlasGroup
 
 
 
+
+
 struct ChunkedOSMImmediateWriter
 {
     AtlasGroup g;
