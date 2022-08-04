@@ -55,8 +55,9 @@ public:
 };
 
 
-bool resolve_osm_geometry(std::string inputfile, std::string output)
+void _resolve_osm_linestrings(std::string inputfile)
 {
+
     size_t n_ways;
     H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
     std::cout << "Resolving Geometry" << std::endl;
@@ -68,14 +69,6 @@ bool resolve_osm_geometry(std::string inputfile, std::string output)
        osm2row[nodes[i]] = i;
     nodes.clear();
    
-    // now we have osm2row with binary search or hash-based access (turn it into a unordered_map) for resolving OSM
-    /*while(true)
-    {
-	uint64_t query;
-	std::cout << "> ";
-	std::cin >> query;
-	std::cout << "Query: " << query << " resolved to " << osm2row[query] << std::endl;
-    }*/
     // transform ways
     n_ways = H5Easy::getSize(file, "/osm/ways");
     
@@ -143,6 +136,15 @@ bool resolve_osm_geometry(std::string inputfile, std::string output)
 	std::cout.flush();
     }
 
-   
+    
+
+}
+
+
+bool resolve_osm_geometry(std::string inputfile, std::string output)
+{
+    _resolve_osm_linestrings(inputfile);
+    
+    
     return true;
 }
