@@ -1,8 +1,8 @@
 #include<iostream>
 #include "osm_immediate.h"
 
-#include "libs/osmpbfreader.h"
-#include "libs/picojson.h"
+#include "osmpbfreader.h"
+#include "picojson.h"
 using namespace osmpbfreader;
 
 #include "atlashdftools.h"
