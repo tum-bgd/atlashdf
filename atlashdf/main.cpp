@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     {
 	resolve_osm_geometry(program.get<std::string>("input"), program.get<std::string>("output"));
 
-    }else
+    }else 
     {
 	std::cerr << "Your operation is not understood or you did not give suitable parameters." << std::endl;
 	std::cerr << program;

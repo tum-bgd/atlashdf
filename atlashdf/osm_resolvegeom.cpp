@@ -5,7 +5,8 @@
 #include <vector>
 
 #include<highfive/H5Easy.hpp>
-
+#define PICOJSON_USE_INT64
+#include "libs/picojson.h"
 //struct IndirectionAppender(std::string data_name, std::string index_name, std::vector<double> row)
 
 
@@ -140,11 +141,137 @@ void _resolve_osm_linestrings(std::string inputfile)
 
 }
 
+void _resolve_osm_polygons(std::string inputfile)
+{
+
+    size_t n_rels;
+    H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
+    std::cout << "Resolving Polygons" << std::endl;
+    // first step is to load indices
+    auto nodes = H5Easy::load<std::vector<uint64_t>>(file, "/osm/nodes");
+    std::cout << "nodes " << nodes.size() << ";;" << nodes[0] << std::endl;
+    std::map<uint64_t, uint64_t> node2row;
+    for (size_t i=0; i < nodes.size(); i++)
+       node2row[nodes[i]] = i;
+    nodes.clear();
+
+    auto ways = H5Easy::load<std::vector<uint64_t>>(file, "/osm/ways");
+    std::cout << "ways " << ways.size() << ";;" << ways[0] << std::endl;
+    std::map<uint64_t, uint64_t> way2row;
+    for (size_t i=0; i < nodes.size(); i++)
+       way2row[nodes[i]] = i;
+    nodes.clear();
+    // At this point, way2row and node2raw can map OSM IDs to rows in AtlasHDF
+    
+    // transform ways
+    n_rels = H5Easy::getSize(file, "/osm/relations");
+    
+    HighFive::DataSet rels_refs = file.getDataSet("/osm/relations_refs");
+    HighFive::DataSet rels_attr = file.getDataSet("/osm/relations_attr");
+    HighFive::DataSetAccessProps aprops;
+    aprops.add(HighFive::Caching(512, 64*1024*1024, 0.5)); // set up significant cache
+    HighFive::DataSet nodes_coords = file.getDataSet("/osm/nodes_coords", aprops);
+    
+
+
+    /// Create the normalized linestring data
+    	if (!file.getGroup("osm").exist("polygons"))
+	{
+	    HighFive::DataSpace idx_ds = HighFive::DataSpace({0, 2}, {HighFive::DataSpace::UNLIMITED,2});
+	    HighFive::DataSetCreateProps props;
+	    props.add(HighFive::Chunking(std::vector<hsize_t>{1024*1024, 2}));
+	    props.add(HighFive::Deflate(9));
+	   
+	    HighFive::DataSpace coord_ds = HighFive::DataSpace({0, 2}, {HighFive::DataSpace::UNLIMITED,2});
+	    HighFive::DataSetCreateProps coord_props;
+	    coord_props.add(HighFive::Chunking(std::vector<hsize_t>{1024*1024, 2}));
+	    coord_props.add(HighFive::Deflate(9));
+	   // Create the dataset
+	   file.getGroup("osm").createDataSet("polygons", coord_ds, HighFive::AtomicType<double>(), coord_props);
+	   file.getGroup("osm").createDataSet("polygons_idx", idx_ds, HighFive::AtomicType<uint32_t>(), props); 
+    }
+    // now the datasets are there. We can open them.
+
+    HighFive::DataSet polygons_ds = file.getDataSet("/osm/polygons");
+    HighFive::DataSet polygons_idx = file.getDataSet("/osm/polygons_idx");
+    
+    IndirectionAppender<double, 2> emit_simplepolygon(polygons_ds, polygons_idx);
+    
+    std::cout << "Relations: " << n_rels << std::endl;
+    for (size_t i=0; i<n_rels; i++)
+    {
+	 std::vector<std::string> result;
+	 rels_refs.select({i,0}, {1,1}).read(result);
+//	 std::cout << result[0] << std::endl;
+	 picojson::value v;
+	 std::string refs = result[0];
+	 rels_attr.select({i,0},{1,1}).read(result);
+	 std::string attr = result[0];
+	 std::cout << attr << std::endl;
+	 // We are only interested in multipolygons (check the wiki, there are boundaries)
+	 if (attr.find("\"type\":\"multipolygon\"") ==std::string::npos)
+	 {
+	    std::cout << "Skipping" << attr << std::endl;
+	    continue;
+	 }
+	 
+	std::string err = picojson::parse(v, result[0]);
+	if (! err.empty())
+	      throw(std::runtime_error("PicoJSON Error: " + err));
+	 if (v.is<picojson::array> ())
+	 {
+	    auto a = v.get<picojson::array>();
+	    for (auto member: a)
+	    {
+		// this will generate picojson errors if the format is wrong. But error checking is not worth it
+	        uint64_t member_id = member.get<picojson::object>()["member_id"].get<int64_t> (); // bug: uint64_t 
+		std::string type  = member.get<picojson::object>()["type"].get<std::string> (); 
+		std::string role  = member.get<picojson::object>()["role"].get<std::string> (); 
+		std::cout << type << "=>" << role << std::endl;
+		
+	       //std::cout << member.serialize() << std::endl;
+	    }
+	 }
+//	 break;
+/*	 std::stringstream ss(result[0]);
+	 std::string item;
+	 std::vector<uint64_t> elems;
+	 while (std::getline(ss, item, ',')) {
+	    elems.push_back(std::stoull(item));
+	}
+	std::vector<std::vector<double>> the_linestring;
+	for (const auto &e:elems)
+	{
+	   auto row = osm2row[e];
+	   std::vector<double> pointdata;
+	   nodes_coords.select({row,0}, {1,2}).read(pointdata);
+	    // TODO: Assemble a linestring WKB either immediately or with some help of libs
+	    // Linestrings are modeled as an indirection of points. That is, there are two tables
+	    // linestring_points and linestring_indices to be written.
+	  the_linestring.push_back({pointdata[0], pointdata[1]});
+	}
+	emit_linestring(the_linestring);*/
+#define DEBUG_TRUNCATE
+#ifdef DEBUG_TRUNCATE
+ 	// Debug TRuncate will run this operation, but only to 1% of the input
+	if((double) i / (double) n_rels > 0.01)
+	  break;
+#endif
+	if (i % 100 == 0)
+	    std::cout << "Progress: " << (double) i / (double) n_rels << "\r";
+	std::cout.flush();
+    }
+
+    
+
+}
+
+
 
 bool resolve_osm_geometry(std::string inputfile, std::string output)
 {
-    _resolve_osm_linestrings(inputfile);
-    
+//    _resolve_osm_linestrings(inputfile);
+       _resolve_osm_polygons(inputfile);
     
     return true;
 }
