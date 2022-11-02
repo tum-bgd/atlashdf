@@ -1,7 +1,7 @@
 # Thanks for writing this makefile Waitman Gobble <ns@waitman.net> 
 CXX = g++
 
-CXXFLAGS = `pkg-config --cflags hdf5` -I HighFive/include -O3 -std=c++17 -Wall #-Wextra
+CXXFLAGS = `pkg-config --cflags hdf5` -I ../include -O3 -std=c++17 -Wall #-Wextra
 
 LDFLAGS = -lprotobuf-lite -losmpbf -lz `pkg-config --libs hdf5`
 
