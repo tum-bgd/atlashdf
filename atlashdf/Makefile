@@ -21,3 +21,5 @@ clean:
 test: build
 	curl -C - -o "../data/berlin-latest.osm.pbf" --create-dirs "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf"
 	./atlashdf import ../data/berlin-latest.osm.pbf ../data/berlin.h5
+	./atlashdf resolve ../data/berlin.h5
+	python3 ../tests/test_linestrings.py ../data/berlin.h5
