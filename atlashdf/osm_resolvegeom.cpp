@@ -73,13 +73,13 @@ const std::map<std::string, std::vector<std::string>> AREA_TAGS = {
 const std::map<std::string, std::vector<std::string>> AREA_TAGS_NOT = {
     {"leisure", {"picnic_table", "slipway", "firepit"}}};
 
-void _resolve_osm_linestrings(std::string inputfile) {
-  std::cout << "Resolving Geometries..." << std::endl;
+void _resolve_osm_ways(std::string inputfile) {
+  std::cout << "Resolving ways..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
 
   // load node indices
   auto nodes = H5Easy::load<std::vector<uint64_t>>(file, "/osm/nodes");
-  std::cout << "Nodes count: " << nodes.size() << std::endl;
+  std::cout << "Node count: " << nodes.size() << std::endl;
 
   std::map<uint64_t, uint64_t> osm2row;
   for (size_t i = 0; i < nodes.size(); i++) osm2row[nodes[i]] = i;
@@ -117,7 +117,7 @@ void _resolve_osm_linestrings(std::string inputfile) {
 
   // process ways
   size_t n_ways = H5Easy::getSize(file, "/osm/ways");
-  std::cout << "Ways: " << n_ways << std::endl;
+  std::cout << "Way count: " << n_ways << std::endl;
 
   HighFive::DataSet ways_refs = file.getDataSet("/osm/ways_refs");
   HighFive::DataSet ways_attr = file.getDataSet("/osm/ways_attr");
@@ -180,14 +180,13 @@ void _resolve_osm_linestrings(std::string inputfile) {
                                tag.second.end());
                     });
 
-    // load linestrings @mwernerds how to match indexes?
+    // load linestrings
     if (is_area && the_linestring.front() == the_linestring.back()) {
+      // @mwernerds how to match indexes?
       emit_polygon(the_linestring);
-      // emit_linestring([]);
-    } else {
-      // emit_polygon([]);
-      emit_linestring(the_linestring);
     }
+
+    emit_linestring(the_linestring);
 
 #ifdef DEBUG_TRUNCATE
     // Debug TRuncate will run this operation, but only to 1% of the input
@@ -199,8 +198,108 @@ void _resolve_osm_linestrings(std::string inputfile) {
   }
 }
 
+void _resolve_osm_relations(std::string inputfile) {
+  std::cout << "Resolving relations..." << std::endl;
+  H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
+
+  // load linestring indices
+  auto ways = H5Easy::load<std::vector<uint64_t>>(file, "/osm/ways");
+  std::cout << "Way count: " << ways.size() << std::endl;
+
+  std::map<uint64_t, uint64_t> osm2row;
+  for (size_t i = 0; i < ways.size(); i++) osm2row[ways[i]] = i;
+  ways.clear();
+
+  // create datasets
+  if (!file.getGroup("osm").exist("parts")) {
+    HighFive::DataSpace ds =
+        HighFive::DataSpace({0, 2}, {HighFive::DataSpace::UNLIMITED, 2});
+    HighFive::DataSetCreateProps props;
+    props.add(HighFive::Chunking(std::vector<hsize_t>{1024 * 1024, 2}));
+    props.add(HighFive::Deflate(9));
+
+    file.getGroup("osm").createDataSet("parts", ds,
+                                       HighFive::AtomicType<double>(), props);
+    file.getGroup("osm").createDataSet("parts_idx", ds,
+                                       HighFive::AtomicType<uint32_t>(), props);
+  }
+
+  // open created datasets
+  HighFive::DataSet parts_ds = file.getDataSet("/osm/parts");
+  HighFive::DataSet parts_idx = file.getDataSet("/osm/parts_idx");
+
+  IndirectionAppender<double, 2> emit_parts(parts_ds, parts_idx);
+
+  // process relations
+  size_t n_relations = H5Easy::getSize(file, "/osm/relations");
+  std::cout << "Relation count: " << n_relations << std::endl;
+
+  HighFive::DataSet relations_refs = file.getDataSet("/osm/relations_refs");
+  HighFive::DataSet relations_attr = file.getDataSet("/osm/relations_attr");
+
+  HighFive::DataSetAccessProps aprops;
+  aprops.add(HighFive::Caching(512, 64 * 1024 * 1024, 0.5));
+  HighFive::DataSet linestrings = file.getDataSet("/osm/linestrings", aprops);
+  // H5Pset_chunk_cache( pid, 100, 10000, 0.5)
+
+  for (size_t i = 0; i < n_relations; i++) {
+    // fetch relation tags
+    std::vector<std::string> attr;
+    relations_attr.select({i, 0}, {1, 1}).read(attr);
+
+    // deserialize tags
+    picojson::value tags;
+    auto err = picojson::parse(tags, attr[0]);
+    if (!err.empty()) std::cerr << err << std::endl;
+
+    // process only type=multipolygon
+    if (!tags.contains("type") || tags.get("type").to_str() != "multipolygon") {
+      continue;
+    }
+
+    // fetch refs (members)
+    std::vector<std::string> refs;
+    relations_refs.select({i, 0}, {1, 1}).read(refs);
+
+    picojson::value members;
+    err = picojson::parse(members, refs[0]);
+    if (!err.empty()) std::cerr << err << std::endl;
+
+    // assemble linestrings
+    std::vector<std::vector<std::vector<double>>> the_linestrings;
+    for (const auto &m : members.get<picojson::array>()) {
+      // only process well formed members
+      auto role = m.get("role").get<std::string>();
+      if (!(role == "outer" || role == "inner")) continue;
+
+      auto row = osm2row[(size_t)m.get("member_id").get<double>()];
+      std::vector<std::vector<double>> linestringdata;
+      linestrings.select({row, 0}, {1, 1}).read(linestringdata);
+      // TODO: Assemble a linestring WKB either immediately or with some help of
+      // libs Linestrings are modeled as an indirection of points. That is,
+      // there are two tables linestring_points and linestring_indices to be
+      // written.
+      the_linestrings.push_back(linestringdata);
+    }
+
+    // TODO: compose and triangulate
+
+    // load linestrings
+    // emit_parts(the_linestrings);
+
+#ifdef DEBUG_TRUNCATE
+    // Debug TRuncate will run this operation, but only to 1% of the input
+    if ((double)i / (double)n_ways > 0.01) break;
+#endif
+    if (i % 100 == 0)
+      std::cout << "Progress: " << (double)i / (double)n_relations << "\r";
+    std::cout.flush();
+  }
+}
+
 bool resolve_osm_geometry(std::string inputfile, std::string output) {
-  _resolve_osm_linestrings(inputfile);
+  _resolve_osm_ways(inputfile);
+  _resolve_osm_relations(inputfile);
 
   return true;
 }
