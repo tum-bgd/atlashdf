@@ -1,11 +1,16 @@
 #include <algorithm>
 #include <highfive/H5Easy.hpp>
+#include <earcut.hpp>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
 
 #include "picojson.h"
+
+using Coord = double;
+using Point = std::array<Coord, 2>;
+using Linestrig = std::vector<Point>;
 
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
@@ -139,16 +144,16 @@ void _resolve_osm_ways(std::string inputfile) {
     }
 
     // assemble coordinates
-    std::vector<std::vector<double>> the_linestring;
+    Linestring linestring;
     for (const auto &e : elems) {
       auto row = osm2row[e];
-      std::vector<double> pointdata;
+      Point pointdata;
       nodes_coords.select({row, 0}, {1, 2}).read(pointdata);
       // TODO: Assemble a linestring WKB either immediately or with some help of
       // libs Linestrings are modeled as an indirection of points. That is,
       // there are two tables linestring_points and linestring_indices to be
       // written.
-      the_linestring.push_back({pointdata[0], pointdata[1]});
+      linestring.push_back({pointdata[0], pointdata[1]});
     }
 
     // fetch way tags
@@ -181,12 +186,12 @@ void _resolve_osm_ways(std::string inputfile) {
                     });
 
     // load linestrings
-    if (is_area && the_linestring.front() == the_linestring.back()) {
-      // @mwernerds how to match indexes?
-      emit_polygon(the_linestring);
+    if (is_area && linestring.front() == linestring.back()) {
+      // TODO: triangulate, create and fill triangle table, keep track of indices (map table)
+      emit_polygon(linestring);
     }
 
-    emit_linestring(the_linestring);
+    emit_linestring(linestring);
 
 #ifdef DEBUG_TRUNCATE
     // Debug TRuncate will run this operation, but only to 1% of the input
@@ -266,23 +271,25 @@ void _resolve_osm_relations(std::string inputfile) {
     if (!err.empty()) std::cerr << err << std::endl;
 
     // assemble linestrings
-    std::vector<std::vector<std::vector<double>>> the_linestrings;
+    std::vector<Linestrig> polygon;
     for (const auto &m : members.get<picojson::array>()) {
       // only process well formed members
       auto role = m.get("role").get<std::string>();
       if (!(role == "outer" || role == "inner")) continue;
 
       auto row = osm2row[(size_t)m.get("member_id").get<double>()];
-      std::vector<std::vector<double>> linestringdata;
+      Linestrig linestringdata;
       linestrings.select({row, 0}, {1, 1}).read(linestringdata);
       // TODO: Assemble a linestring WKB either immediately or with some help of
       // libs Linestrings are modeled as an indirection of points. That is,
       // there are two tables linestring_points and linestring_indices to be
       // written.
-      the_linestrings.push_back(linestringdata);
+      polygon.push_back(linestringdata);
     }
 
     // TODO: compose and triangulate
+    std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
+    // TODO: flatten polygon coordinates and assemble trangles.
 
     // load linestrings
     // emit_parts(the_linestrings);

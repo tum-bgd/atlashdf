@@ -18,7 +18,7 @@ Polygon attributes are replicated to each of those, this could be optimized by i
 #include <fstream>
 #include <iostream>
 #include <list>
-
+#include <earcut.hpp>
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
@@ -188,33 +188,49 @@ void fracture(const polygon &in, polycontainer &out)
 
 int main()
 {
-  typedef boost::geometry::model::polygon<boost::geometry::model::d2::point_xy<double>> polygon;
 
-  polygon poly;
-  // the input data as test 
-  boost::geometry::read_wkt("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0),"
-                              "(0.25 0.25, 0.25 0.75, 0.75 0.75, 0.75 0.25, 0.25 0.25),"
-	                            "(0.9 0.9, 0.9 0.95, 0.95 0.95, 0.95 0.9, 0.9 0.9)"
-	                            ")", poly);
-  // creat the polygon named by simple 
-  std::vector<polygon> simple;
-  fracture(poly, simple);
+  // typedef boost::geometry::model::polygon<boost::geometry::model::d2::point_xy<double>> polygon;
 
-  std::cout << "Simple now contains " << simple.size() << " polygons." << std::endl;
-  for (const auto &p : simple)
-  {
-    std::cout << "\t" << bg::wkt(p) << std::endl;
-  }
-  simple.clear();
-  //apple the triangulate function to our created polygon
-  triangulate(poly, simple);
-  //created file and write the results in result.wkt
-  std::ofstream f;
-  f.open("result.wkt");
-  for (const auto p : simple) {
-    f << bg::wkt(p) ;
-  }
-  f.close();
+  // polygon poly;
+  // // the input data as test 
+  // boost::geometry::read_wkt("POLYGON((0 3, 6 0, 8 2, 7.5 3, 7 2.5, 6.5 3.5, 6 3, 5.5 4, 5 3.5, 4.5 4.5, 4 4, 3.5 5, 3 4, 0 3),"
+	//                             "(4 2, 5 1.5, 5 2.5, 4 3, 4 2)"
+	//                              ")", poly);
+  // // creat the polygon named by simple 
+  // std::vector<polygon> simple;
+  // fracture(poly, simple);
+
+  // std::cout << "Simple now contains " << simple.size() << " polygons." << std::endl;
+
+  using Coord = double;
+  using Point = std::array<Coord, 2>;
+  std::vector<std::vector<Point>> polygon;
+
+  // Fill polygon structure with actual data. Any winding order works.
+  // The first polyline defines the main polygon.
+  polygon.push_back({{0, 3},{6, 0}, {8,2}, {7.5,3}, {7,2.5}, {6.5,3.5}, {6,3}, {5.5,4}, {5,3.5}, {4.5,4.5}, {4,4}, {3.5,5}, {3,4}, {0,3}});
+  // Following polylines define holes.
+  polygon.push_back({{4,2}, {5,1.5}, {5,2.5}, {4,3}, {4 ,2}});
+
+  std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
+  std::cout << "Indices: " << indices.size()/3 << std::endl;
+
+  // std::vector<polygon> simple;
+  // fracture(polygon, simple);
+  // for (const auto &p : simple)
+  // {
+  //   std::cout << "\t" << bg::wkt(p) << std::endl;
+  // }
+  // simple.clear();
+  // //apple the triangulate function to our created polygon
+  // triangulate(polygon, simple);
+  // //created file and write the results in result.wkt
+  // std::ofstream f;
+  // f.open("result.wkt");
+  // for (const auto p : simple) {
+  //   f << bg::wkt(p) ;
+  // }
+  // f.close();
 
   return 0;
 }
