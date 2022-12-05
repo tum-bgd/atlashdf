@@ -6,8 +6,7 @@
  *          http://www.boost.org/LICENSE_1_0.txt)
  *
  */
-#ifndef H5SELECTION_HPP
-#define H5SELECTION_HPP
+#pragma once
 
 #include "H5DataSet.hpp"
 #include "H5DataSpace.hpp"
@@ -20,7 +19,7 @@ namespace HighFive {
 ///
 /// A Selection is valid only if its parent dataset is valid
 ///
-class Selection : public SliceTraits<Selection> {
+class Selection: public SliceTraits<Selection> {
   public:
     ///
     /// \brief getSpace
@@ -48,17 +47,14 @@ class Selection : public SliceTraits<Selection> {
     const DataType getDataType() const;
 
   private:
-    Selection(const DataSpace& memspace,
-              const DataSpace& file_space,
-              const DataSet& set);
+    Selection(const DataSpace& memspace, const DataSpace& file_space, const DataSet& set);
 
     DataSpace _mem_space, _file_space;
     DataSet _set;
 
-    template <typename Derivate> friend class ::HighFive::SliceTraits;
+    template <typename Derivate>
+    friend class ::HighFive::SliceTraits;
     // absolute namespace naming due to GCC bug 52625
 };
 
 }  // namespace HighFive
-
-#endif // H5SELECTION_HPP

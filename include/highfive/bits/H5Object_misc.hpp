@@ -6,31 +6,35 @@
  *          http://www.boost.org/LICENSE_1_0.txt)
  *
  */
-#ifndef H5OBJECT_MISC_HPP
-#define H5OBJECT_MISC_HPP
+#pragma once
 
 #include <iostream>
 
+#include "../H5Exception.hpp"
+
 namespace HighFive {
 
-inline Object::Object() : _hid(H5I_INVALID_HID) {}
+inline Object::Object()
+    : _hid(H5I_INVALID_HID) {}
 
-inline Object::Object(hid_t hid) : _hid(hid) {}
+inline Object::Object(hid_t hid)
+    : _hid(hid) {}
 
-inline Object::Object(const Object& other) : _hid(other._hid) {
+inline Object::Object(const Object& other)
+    : _hid(other._hid) {
     if (other.isValid() && H5Iinc_ref(_hid) < 0) {
         throw ObjectException("Reference counter increase failure");
     }
 }
 
 inline Object::Object(Object&& other) noexcept
-    : _hid(other._hid)  {
+    : _hid(other._hid) {
     other._hid = H5I_INVALID_HID;
 }
 
 inline Object& Object::operator=(const Object& other) {
     if (this != &other) {
-        if (_hid != H5I_INVALID_HID)
+        if (isValid())
             H5Idec_ref(_hid);
 
         _hid = other._hid;
@@ -43,8 +47,7 @@ inline Object& Object::operator=(const Object& other) {
 
 inline Object::~Object() {
     if (isValid() && H5Idec_ref(_hid) < 0) {
-        std::cerr << "HighFive::~Object: reference counter decrease failure"
-                  << std::endl;
+        std::cerr << "HighFive::~Object: reference counter decrease failure" << std::endl;
     }
 }
 
@@ -58,20 +61,20 @@ inline hid_t Object::getId() const noexcept {
 
 static inline ObjectType _convert_object_type(const H5I_type_t& h5type) {
     switch (h5type) {
-        case H5I_FILE:
-            return ObjectType::File;
-        case H5I_GROUP:
-            return ObjectType::Group;
-        case H5I_DATATYPE:
-            return ObjectType::UserDataType;
-        case H5I_DATASPACE:
-            return ObjectType::DataSpace;
-        case H5I_DATASET:
-            return ObjectType::Dataset;
-        case H5I_ATTR:
-            return ObjectType::Attribute;
-        default:
-            return ObjectType::Other;
+    case H5I_FILE:
+        return ObjectType::File;
+    case H5I_GROUP:
+        return ObjectType::Group;
+    case H5I_DATATYPE:
+        return ObjectType::UserDataType;
+    case H5I_DATASPACE:
+        return ObjectType::DataSpace;
+    case H5I_DATASET:
+        return ObjectType::Dataset;
+    case H5I_ATTR:
+        return ObjectType::Attribute;
+    default:
+        return ObjectType::Other;
     }
 }
 
@@ -110,7 +113,4 @@ inline time_t ObjectInfo::getModificationTime() const noexcept {
 }
 
 
-
-}  // namespace
-
-#endif // H5OBJECT_MISC_HPP
+}  // namespace HighFive

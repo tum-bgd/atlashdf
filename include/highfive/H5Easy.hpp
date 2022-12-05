@@ -15,8 +15,7 @@
 /// - xtensor objects
 /// - OpenCV objects
 
-#ifndef H5EASY_HPP
-#define H5EASY_HPP
+#pragma once
 
 #include <string>
 #include <vector>
@@ -59,8 +58,8 @@
 
 namespace H5Easy {
 
-using HighFive::Attribute;
 using HighFive::AtomicType;
+using HighFive::Attribute;
 using HighFive::Chunking;
 using HighFive::DataSet;
 using HighFive::DataSetCreateProps;
@@ -74,24 +73,21 @@ using HighFive::Shuffle;
 ///
 /// \brief Write mode for DataSets
 enum class DumpMode {
-    Create = 0, /*!< Dump only if DataSet does not exist, otherwise throw. */
+    Create = 0,   /*!< Dump only if DataSet does not exist, otherwise throw. */
     Overwrite = 1 /*!< Create or overwrite if DataSet of correct shape exists, otherwise throw. */
 };
 
 ///
 /// \brief Signal to enable/disable automatic flushing after write operations.
-enum class Flush
-{
+enum class Flush {
     False = 0, /*!< No automatic flushing. */
-    True = 1 /*!< Automatic flushing. */
+    True = 1   /*!< Automatic flushing. */
 };
 
 ///
 /// \brief Signal to set compression level for written DataSets.
-class Compression
-{
-public:
-
+class Compression {
+  public:
     ///
     /// \brief Enable compression with the highest compression level (9).
     /// or disable compression (set compression level to 0).
@@ -110,7 +106,7 @@ public:
     /// \brief Return compression level.
     inline unsigned get() const;
 
-private:
+  private:
     unsigned m_compression_level;
 };
 
@@ -122,9 +118,8 @@ private:
 /// - Flush::True
 /// - Compression: false
 /// - ChunkSize: automatic
-class DumpOptions
-{
-public:
+class DumpOptions {
+  public:
     ///
     /// \brief Constructor: accept all default settings.
     DumpOptions() = default;
@@ -133,8 +128,7 @@ public:
     /// \brief Constructor: overwrite (some of the) defaults.
     /// \param args any of DumpMode(), Flush(), Compression() in arbitrary number and order.
     template <class... Args>
-    DumpOptions(Args... args)
-    {
+    DumpOptions(Args... args) {
         set(args...);
     }
 
@@ -202,7 +196,7 @@ public:
     /// be automatically computed.
     inline std::vector<hsize_t> getChunkSize() const;
 
-private:
+  private:
     bool m_overwrite = false;
     bool m_flush = true;
     unsigned m_compression_level = 0;
@@ -254,10 +248,7 @@ inline DataSet dump(File& file,
 /// \return The newly created DataSet
 ///
 template <class T>
-inline DataSet dump(File& file,
-                    const std::string& path,
-                    const T& data,
-                    const DumpOptions& options);
+inline DataSet dump(File& file, const std::string& path, const T& data, const DumpOptions& options);
 
 ///
 /// \brief Write a scalar to a (new, extendible) DataSet in an open HDF5 file.
@@ -407,5 +398,3 @@ inline T loadAttribute(const File& file, const std::string& path, const std::str
 #include "h5easy_bits/H5Easy_scalar.hpp"
 #include "h5easy_bits/H5Easy_vector.hpp"
 #include "h5easy_bits/H5Easy_xtensor.hpp"
-
-#endif  // H5EASY_HPP

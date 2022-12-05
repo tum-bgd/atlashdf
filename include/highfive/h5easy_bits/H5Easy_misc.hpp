@@ -6,8 +6,7 @@
  *          http://www.boost.org/LICENSE_1_0.txt)
  *
  */
-#ifndef H5EASY_BITS_MISC_HPP
-#define H5EASY_BITS_MISC_HPP
+#pragma once
 
 #include "../H5Easy.hpp"
 
@@ -16,9 +15,7 @@ namespace H5Easy {
 namespace detail {
 
 // Generate error-stream and return "Exception" (not yet thrown).
-inline Exception error(const File& file,
-                       const std::string& path,
-                       const std::string& message) {
+inline Exception error(const File& file, const std::string& path, const std::string& message) {
     std::ostringstream ss;
     ss << message << std::endl
        << "Path: " << path << std::endl
@@ -27,14 +24,16 @@ inline Exception error(const File& file,
 }
 
 // Generate specific dump error
-inline Exception dump_error(File& file, const std::string& path)
-{
+inline Exception dump_error(File& file, const std::string& path) {
     if (file.getObjectType(path) == ObjectType::Dataset) {
-        return error(file, path,
-            "H5Easy: Dataset already exists, dump with H5Easy::DumpMode::Overwrite "
-            "to overwrite (with an array of the same shape).");
+        return error(file,
+                     path,
+                     "H5Easy: Dataset already exists, dump with H5Easy::DumpMode::Overwrite "
+                     "to overwrite (with an array of the same shape).");
     } else {
-        return error(file, path,
+        return error(
+            file,
+            path,
             "H5Easy: path exists, but does not correspond to a Dataset. Dump not possible.");
     }
 }
@@ -44,8 +43,7 @@ template <class T>
 inline DataSet initDataset(File& file,
                            const std::string& path,
                            const std::vector<size_t>& shape,
-                           const DumpOptions& options)
-{
+                           const DumpOptions& options) {
     if (!file.exist(path)) {
         if (!options.compress() && !options.isChunked()) {
             return file.createDataSet<T>(path, DataSpace(shape), {}, {}, true);
@@ -80,8 +78,7 @@ template <class T>
 inline DataSet initScalarDataset(File& file,
                                  const std::string& path,
                                  const T& data,
-                                 const DumpOptions& options)
-{
+                                 const DumpOptions& options) {
     if (!file.exist(path)) {
         return file.createDataSet<T>(path, DataSpace::From(data), {}, {}, true);
     } else if (options.overwrite() && file.getObjectType(path) == ObjectType::Dataset) {
@@ -100,8 +97,7 @@ inline Attribute initAttribute(File& file,
                                const std::string& path,
                                const std::string& key,
                                const std::vector<size_t>& shape,
-                               const DumpOptions& options)
-{
+                               const DumpOptions& options) {
     if (!file.exist(path)) {
         throw error(file, path, "H5Easy::dumpAttribute: DataSet does not exist");
     }
@@ -119,8 +115,9 @@ inline Attribute initAttribute(File& file,
         }
         return attribute;
     }
-    throw error(file, path,
-        "H5Easy: Attribute exists, overwrite with H5Easy::DumpMode::Overwrite.");
+    throw error(file,
+                path,
+                "H5Easy: Attribute exists, overwrite with H5Easy::DumpMode::Overwrite.");
 }
 
 // get a opened Attribute: scalar
@@ -129,8 +126,7 @@ inline Attribute initScalarAttribute(File& file,
                                      const std::string& path,
                                      const std::string& key,
                                      const T& data,
-                                     const DumpOptions& options)
-{
+                                     const DumpOptions& options) {
     if (!file.exist(path)) {
         throw error(file, path, "H5Easy::dumpAttribute: DataSet does not exist");
     }
@@ -148,11 +144,10 @@ inline Attribute initScalarAttribute(File& file,
         }
         return attribute;
     }
-    throw error(file, path,
-        "H5Easy: Attribute exists, overwrite with H5Easy::DumpMode::Overwrite.");
+    throw error(file,
+                path,
+                "H5Easy: Attribute exists, overwrite with H5Easy::DumpMode::Overwrite.");
 }
 
 }  // namespace detail
 }  // namespace H5Easy
-
-#endif  // H5EASY_BITS_MISC_HPP

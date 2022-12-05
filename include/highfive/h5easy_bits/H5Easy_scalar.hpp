@@ -6,8 +6,7 @@
  *          http://www.boost.org/LICENSE_1_0.txt)
  *
  */
-#ifndef H5EASY_BITS_SCALAR_HPP
-#define H5EASY_BITS_SCALAR_HPP
+#pragma once
 
 #include "../H5Easy.hpp"
 #include "H5Easy_misc.hpp"
@@ -22,7 +21,6 @@ Used e.g. for scalars.
 */
 template <typename T, typename = void>
 struct io_impl {
-
     inline static DataSet dump(File& file,
                                const std::string& path,
                                const T& data,
@@ -77,7 +75,9 @@ struct io_impl {
             std::vector<size_t> dims = dataset.getDimensions();
             std::vector<size_t> shape = dims;
             if (dims.size() != idx.size()) {
-                throw detail::error(file, path,
+                throw detail::error(
+                    file,
+                    path,
                     "H5Easy::dump: Dimension of the index and the existing field do not match");
             }
             for (size_t i = 0; i < dims.size(); ++i) {
@@ -103,7 +103,7 @@ struct io_impl {
                 throw error(file, path, "H5Easy::dump: Incorrect dimension ChunkSize");
             }
         }
-        for (size_t& i : shape) {
+        for (size_t& i: shape) {
             i++;
         }
         DataSpace dataspace = DataSpace(shape, unlim_shape);
@@ -130,5 +130,3 @@ struct io_impl {
 
 }  // namespace detail
 }  // namespace H5Easy
-
-#endif  // H5EASY_BITS_SCALAR_HPP
