@@ -63,6 +63,8 @@ struct HasContainerTraits : std::false_type {};
 
 template <> struct HasContainerTraits<std::string> : std::false_type {};
 
+template <> struct HasContainerTraits<std::string_view> : std::false_type {};
+
 template <typename T>
 struct HasContainerTraits<
     T, std::void_t<typename T::value_type, decltype(std::declval<T>().begin()),
@@ -1165,6 +1167,22 @@ public:
     return *this;
   }
 
+  /* Getter for arguments and subparsers.
+   * @throws std::logic_error in case of an invalid argument or subparser name
+   */
+  template <typename T = Argument>
+  T& at(std::string_view name) {
+    if constexpr (std::is_same_v<T, Argument>) {
+      return (*this)[name];
+    } else {
+      auto subparser_it = m_subparser_map.find(name);
+      if (subparser_it != m_subparser_map.end()) {
+        return subparser_it->second->get();
+      }
+      throw std::logic_error("No such subparser: " + std::string(name));
+    }
+  }
+
   ArgumentParser &set_prefix_chars(std::string prefix_chars) {
     m_prefix_chars = std::move(prefix_chars);
     return *this;
@@ -1253,11 +1271,16 @@ public:
     return (*this)[arg_name].m_is_used;
   }
 
-  /* Getter that returns true for user-supplied options. Returns false if not
-   * user-supplied, even with a default value.
+  /* Getter that returns true if a subcommand is used.
    */
   auto is_subcommand_used(std::string_view subcommand_name) const {
     return m_subparser_used.at(subcommand_name);
+  }
+
+  /* Getter that returns true if a subcommand is used.
+   */
+  auto is_subcommand_used(const ArgumentParser &subparser) const {
+    return is_subcommand_used(subparser.m_program_name);
   }
 
   /* Indexing operator. Return a reference to an Argument object
@@ -1358,13 +1381,7 @@ public:
 
     // Add any options inline here
     for (const auto &argument : this->m_optional_arguments) {
-      if (argument.m_names.front() == "-v") {
-        continue;
-      } else if (argument.m_names.front() == "-h") {
-        stream << " [-h]";
-      } else {
-        stream << " " << argument.get_inline_usage();
-      }
+      stream << " " << argument.get_inline_usage();
     }
     // Put positional arguments after the optionals
     for (const auto &argument : this->m_positional_arguments) {

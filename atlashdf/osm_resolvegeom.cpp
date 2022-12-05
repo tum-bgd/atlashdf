@@ -1,12 +1,13 @@
-#include "./traingulation.hpp"
 #include <algorithm>
-#include <highfive/H5Easy.hpp>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
 
-#include "picojson.h"
+#include <highfive/H5Easy.hpp>
+#include <picojson.h>
+
+#include "traingulation.hpp"
 
 using Point = std::vector<double>;
 using Linestring = std::vector<Point>;
@@ -104,10 +105,10 @@ void _resolve_osm_ways(std::string inputfile) {
                                        HighFive::AtomicType<double>(), props);
     file.getGroup("osm").createDataSet("linestrings_idx", ds,
                                        HighFive::AtomicType<uint32_t>(), props);
-    file.getGroup("osm").createDataSet("polygons", ds,
-                                       HighFive::AtomicType<double>(), props);
-    file.getGroup("osm").createDataSet("polygons_idx", ds,
-                                       HighFive::AtomicType<uint32_t>(), props);
+    // file.getGroup("osm").createDataSet("polygons", ds,
+    //                                    HighFive::AtomicType<double>(), props);
+    // file.getGroup("osm").createDataSet("polygons_idx", ds,
+    //                                    HighFive::AtomicType<uint32_t>(), props);
   }
 
   // open created datasets
@@ -117,10 +118,10 @@ void _resolve_osm_ways(std::string inputfile) {
   IndirectionAppender<double, 2> emit_linestring(linestrings_ds,
                                                  linestrings_idx);
 
-  HighFive::DataSet polygons_ds = file.getDataSet("/osm/polygons");
-  HighFive::DataSet polygons_idx = file.getDataSet("/osm/polygons_idx");
+  // HighFive::DataSet polygons_ds = file.getDataSet("/osm/polygons");
+  // HighFive::DataSet polygons_idx = file.getDataSet("/osm/polygons_idx");
 
-  IndirectionAppender<double, 2> emit_polygon(polygons_ds, polygons_idx);
+  // IndirectionAppender<double, 2> emit_polygon(polygons_ds, polygons_idx);
 
   // process ways
   size_t n_ways = H5Easy::getSize(file, "/osm/ways");
@@ -191,6 +192,7 @@ void _resolve_osm_ways(std::string inputfile) {
     if (is_area && linestring.front() == linestring.back()) {
       // TODO: triangulate, create and fill triangle table, keep track of
       // indices (map table) emit_polygon(linestring);
+      continue;
     }
 
     emit_linestring(linestring);
@@ -348,7 +350,7 @@ void _resolve_osm_relations(std::string inputfile) {
 
 bool resolve_osm_geometry(std::string inputfile, std::string output) {
   _resolve_osm_ways(inputfile);
-  _resolve_osm_relations(inputfile);
+  // _resolve_osm_relations(inputfile);
 
   return true;
 }

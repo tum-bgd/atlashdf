@@ -106,10 +106,6 @@ struct Parser {
 
     void parse(){
         while(!this->file.eof() && !finished) {
-	    // Martin.Werner@tum.de adds progress bar
-	    // MARK
-	    auto position = file.tellg();
-	    visitor.progress (position, fsize);
             OSMPBF::BlobHeader header = this->read_header();
             if(!this->finished){
                 int32_t sz = this->read_blob(header);
@@ -123,24 +119,16 @@ struct Parser {
                 }
             }
         }
-	visitor.progress(fsize,fsize);
     }
 
     Parser(const std::string & filename, Visitor & visitor)
         : visitor(visitor), file(filename.c_str(), std::ios::binary ), finished(false)
     {
-	
         if(!file.is_open())
             fatal() << "Unable to open the file " << filename;
-	// read size of flie
-	fsize = file.tellg();
-	file.seekg( 0, std::ios::end );
-	fsize = file.tellg() - fsize;
-	file.seekg( 0, std::ios::beg);
-	visitor.progress(0,fsize);
         buffer = new char[max_uncompressed_blob_size];
         unpack_buffer = new char[max_uncompressed_blob_size];
-        info() << "Reading the file " << filename  << " of " << fsize << " bytes.";
+        info() << "Reading the file " << filename;
     }
 
     ~Parser(){
@@ -151,7 +139,6 @@ struct Parser {
 private:
     Visitor & visitor;
     std::ifstream file;
-    std::streampos fsize;
     char* buffer;
     char* unpack_buffer;
     bool finished;

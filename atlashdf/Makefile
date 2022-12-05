@@ -16,7 +16,7 @@ build: main.cpp osm_immediate.cpp osm_resolvegeom.cpp
 	$(CXX) $(CXXFLAGS) -o atlashdf main.cpp osm_immediate.cpp osm_resolvegeom.cpp $(LDFLAGS)
 
 clean:
-	rm -f *.o core atlashdf
+	rm -f *.o core atlashdf ../data
 
 test: build
 	curl -C - -o "../data/berlin-latest.osm.pbf" --create-dirs "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf"
