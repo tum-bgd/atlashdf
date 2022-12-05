@@ -18,7 +18,10 @@ Polygon attributes are replicated to each of those, this could be optimized by i
 #include <fstream>
 #include <iostream>
 #include <list>
-#include <earcut.hpp>
+#include <vector>
+#include <string>
+#include <ostream>
+#include </home/test/HDF4water/atlashdf/include/earcut.hpp>
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
@@ -170,8 +173,7 @@ void fracture(const polygon &in, polycontainer &out)
   out.clear();
   std::ofstream fractured("fractured.dat");
   for (const auto &poly : simplePolygons)
-  {
-    polygon op;
+  {polygon op;
     std::cout << "==" << std::endl;
     for (const Point &p : poly)
     {
@@ -185,36 +187,90 @@ void fracture(const polygon &in, polycontainer &out)
     fractured << "NaN NaN" << std::endl;
   }
 }
+  using Coord = float;
+  using Point = std::array<Coord, 2>;
+  std::vector<std::vector<Point>> polygon;
+  std::vector<Point> points;
 
+  // define a ostream &operator function,how to print the points out
+  std::ostream &operator<<(std::ostream &os, const Point &point)
+  {
+    os << "(" << point[0] << ", " << point[1] << ')';
+    return os;
+  }
 int main()
 {
 
   // typedef boost::geometry::model::polygon<boost::geometry::model::d2::point_xy<double>> polygon;
 
   // polygon poly;
-  // // the input data as test 
+  // // the input data as test
   // boost::geometry::read_wkt("POLYGON((0 3, 6 0, 8 2, 7.5 3, 7 2.5, 6.5 3.5, 6 3, 5.5 4, 5 3.5, 4.5 4.5, 4 4, 3.5 5, 3 4, 0 3),"
-	//                             "(4 2, 5 1.5, 5 2.5, 4 3, 4 2)"
-	//                              ")", poly);
-  // // creat the polygon named by simple 
+  //                             "(4 2, 5 1.5, 5 2.5, 4 3, 4 2)"
+  //                              ")", poly);
+  // // creat the polygon named by simple
   // std::vector<polygon> simple;
   // fracture(poly, simple);
 
   // std::cout << "Simple now contains " << simple.size() << " polygons." << std::endl;
 
-  using Coord = double;
+  using Coord = float;
   using Point = std::array<Coord, 2>;
   std::vector<std::vector<Point>> polygon;
 
+
+
   // Fill polygon structure with actual data. Any winding order works.
   // The first polyline defines the main polygon.
-  polygon.push_back({{0, 3},{6, 0}, {8,2}, {7.5,3}, {7,2.5}, {6.5,3.5}, {6,3}, {5.5,4}, {5,3.5}, {4.5,4.5}, {4,4}, {3.5,5}, {3,4}, {0,3}});
+  polygon.push_back({{0, 3}, {6, 0}, {8, 2}, {7.5, 3}, {7, 2.5}, {6.5, 3.5}, {6, 3}, {5.5, 4}, {5, 3.5}, {4.5, 4.5}, {4, 4}, {3.5, 5}, {3, 4}, {0, 3}});
   // Following polylines define holes.
-  polygon.push_back({{4,2}, {5,1.5}, {5,2.5}, {4,3}, {4 ,2}});
+  polygon.push_back({{4, 2}, {5, 1.5}, {5, 2.5}, {4, 3}, {4, 2}});
 
+  // use earcut to get the results of trigulation
   std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
-  std::cout << "Indices: " << indices.size()/3 << std::endl;
+  // std::ofstream output("result.wkt");
+  // output.write(indices);
+  // print number of trigulation's results
+  std::cout << "the number of the triangkes as results are :" << indices.size() << std::endl;
 
+  // flatten points of polygon
+  std::vector<Point> points;
+  for (auto const &ls : polygon)
+  {
+    points.insert(points.end(), ls.begin(), ls.end());
+  }
+
+  // assemble triangles
+  std::vector<std::vector<Point>> triangles;
+  for (auto i = 0; i < indices.size() / 3; i++)
+  {
+    std::vector<Point> triangle;
+    std::cout << "Triangle [";
+    for (auto j = 0; j < 3; j++)
+    {
+      triangle.push_back(points[i * 3 + j]);
+      std::cout << " " << points[i * 3 + j];
+    }
+    std::cout << " ]" << std::endl;
+    break;
+    // save all the results in triangles
+    triangles.push_back(triangle); 
+
+    // TODO: write to trinagles table in h5
+  }
+
+  // bg::wkt(indices)<<"\n";
+  // save the results in result.wkt file
+ /*
+  std::ofstream f;
+  f.open("result.wkt");
+
+  for (int i; i <=17;i++)
+  {
+    f<< bg :: wkt(triangles[i]);
+  }
+  f.close();
+*/
   // std::vector<polygon> simple;
   // fracture(polygon, simple);
   // for (const auto &p : simple)
@@ -225,12 +281,14 @@ int main()
   // //apple the triangulate function to our created polygon
   // triangulate(polygon, simple);
   // //created file and write the results in result.wkt
-  // std::ofstream f;
-  // f.open("result.wkt");
-  // for (const auto p : simple) {
-  //   f << bg::wkt(p) ;
-  // }
-  // f.close();
-
+  /*
+  std::ofstream f;
+  f.open("result.wkt");
+  for (const auto p : simple)
+  {
+    f << bg::wkt(p);
+  }
+  f.close();
+  */
   return 0;
 }
