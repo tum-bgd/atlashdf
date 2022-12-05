@@ -7,7 +7,7 @@
 #include <highfive/H5Easy.hpp>
 #include <picojson.h>
 
-#include "traingulation.hpp"
+#include "triangulation.hpp"
 
 using Point = std::vector<double>;
 using Linestring = std::vector<Point>;
