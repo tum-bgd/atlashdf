@@ -61,24 +61,24 @@ public:
   }
 };
 
-const std::vector<std::string> AREA_KEYS = {
-    "building", "landuse",  "amenity", "shop",        "building:part",
-    "boundary", "historic", "place",   "area:highway"};
+// const std::vector<std::string> AREA_KEYS = {
+//     "building", "landuse",  "amenity", "shop",        "building:part",
+//     "boundary", "historic", "place",   "area:highway"};
 
-const std::map<std::string, std::vector<std::string>> AREA_TAGS = {
-    {"area", {"yes"}},
-    {"waterway", {"riverbank"}},
-    {"highway", {"rest_area", "services", "platform"}},
-    {"railway", {"platform"}},
-    {"natural",
-     {"water",     "wood",      "scrub",    "wetland", "grassland", "heath",
-      "rock",      "bare_rock", "sand",     "beach",   "scree",     "bay",
-      "glacier",   "shingle",   "fell",     "reef",    "stone",     "mud",
-      "landslide", "sinkhole",  "crevasse", "desert"}},
-    {"aeroway", {"aerodrome"}}};
+// const std::map<std::string, std::vector<std::string>> AREA_TAGS = {
+//     {"area", {"yes"}},
+//     {"waterway", {"riverbank"}},
+//     {"highway", {"rest_area", "services", "platform"}},
+//     {"railway", {"platform"}},
+//     {"natural",
+//      {"water",     "wood",      "scrub",    "wetland", "grassland", "heath",
+//       "rock",      "bare_rock", "sand",     "beach",   "scree",     "bay",
+//       "glacier",   "shingle",   "fell",     "reef",    "stone",     "mud",
+//       "landslide", "sinkhole",  "crevasse", "desert"}},
+//     {"aeroway", {"aerodrome"}}};
 
-const std::map<std::string, std::vector<std::string>> AREA_TAGS_NOT = {
-    {"leisure", {"picnic_table", "slipway", "firepit"}}};
+// const std::map<std::string, std::vector<std::string>> AREA_TAGS_NOT = {
+//     {"leisure", {"picnic_table", "slipway", "firepit"}}};
 
 void _resolve_osm_ways(std::string inputfile) {
   std::cout << "Resolving ways..." << std::endl;
@@ -158,22 +158,22 @@ void _resolve_osm_ways(std::string inputfile) {
     }
 
     // check for area feature
-    bool is_area =
-        std::any_of(AREA_KEYS.begin(), AREA_KEYS.end(),
-                    [&v](auto &key) { return v.contains(key); }) ||
-        std::any_of(AREA_TAGS.begin(), AREA_TAGS.end(),
-                    [&v](const auto &tag) {
-                      return std::find(tag.second.begin(), tag.second.end(),
-                                       v.get(tag.first).to_str()) !=
-                             tag.second.end();
-                    }) ||
-        std::any_of(AREA_TAGS_NOT.begin(), AREA_TAGS_NOT.end(),
-                    [&v](const auto &tag) {
-                      return v.contains(tag.first) &&
-                             !(std::find(tag.second.begin(), tag.second.end(),
-                                         v.get(tag.first).to_str()) !=
-                               tag.second.end());
-                    });
+    // bool is_area =
+    //     std::any_of(AREA_KEYS.begin(), AREA_KEYS.end(),
+    //                 [&v](auto &key) { return v.contains(key); }) ||
+    //     std::any_of(AREA_TAGS.begin(), AREA_TAGS.end(),
+    //                 [&v](const auto &tag) {
+    //                   return std::find(tag.second.begin(), tag.second.end(),
+    //                                    v.get(tag.first).to_str()) !=
+    //                          tag.second.end();
+    //                 }) ||
+    //     std::any_of(AREA_TAGS_NOT.begin(), AREA_TAGS_NOT.end(),
+    //                 [&v](const auto &tag) {
+    //                   return v.contains(tag.first) &&
+    //                          !(std::find(tag.second.begin(), tag.second.end(),
+    //                                      v.get(tag.first).to_str()) !=
+    //                            tag.second.end());
+    //                 });
 
     // load linestrings
     emit_linestring(linestring);
