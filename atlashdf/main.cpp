@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
       try {
 	program.parse_args(argc, argv);
-      } catch (const std::runtime_errg++ hdf5_simple.cpp -lhdf5 -lhdf5_cpp -o hdf5_simpleor &err) {
+      } catch (const std::runtime_error &err) {
 	std::cerr << err.what() << std::endl;
 	std::cerr << program;
         return -1;

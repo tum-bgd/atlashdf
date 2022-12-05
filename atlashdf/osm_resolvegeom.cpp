@@ -1,6 +1,6 @@
+#include "./traingulation.hpp"
 #include <algorithm>
-#include </home/test/HDF4water/atlashdf/include/highfive/H5Easy.hpp>
-#include </home/test/HDF4water/atlashdf/include/earcut.hpp>
+#include <highfive/H5Easy.hpp>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -8,19 +8,19 @@
 
 #include "picojson.h"
 
-using Coord = double;
-using Point = std::array<Coord, 2>;
-using Linestrig = std::vector<Point>;
+using Point = std::vector<double>;
+using Linestring = std::vector<Point>;
+using Polygon = std::vector<Linestring>;
 
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
 
 template <typename dtype, int DIM, int CACHE_SIZE = 1024 * 1024 * 1024>
 class IndirectionAppender {
- private:
+private:
   HighFive::DataSet &data, &index;
 
- public:
+public:
   IndirectionAppender(HighFive::DataSet &data, HighFive::DataSet &index)
       : data(data), index(index) {}
   ~IndirectionAppender() { flush(); };
@@ -55,7 +55,8 @@ class IndirectionAppender {
     ccache.insert(ccache.end(), row.cbegin(), row.cend());
     icache.push_back(
         {static_cast<uint32_t>(start), static_cast<uint32_t>(end)});
-    if (ccache.size() > CACHE_SIZE) flush();
+    if (ccache.size() > CACHE_SIZE)
+      flush();
   }
 };
 
@@ -87,7 +88,8 @@ void _resolve_osm_ways(std::string inputfile) {
   std::cout << "Node count: " << nodes.size() << std::endl;
 
   std::map<uint64_t, uint64_t> osm2row;
-  for (size_t i = 0; i < nodes.size(); i++) osm2row[nodes[i]] = i;
+  for (size_t i = 0; i < nodes.size(); i++)
+    osm2row[nodes[i]] = i;
   nodes.clear();
 
   // create datasets
@@ -105,7 +107,7 @@ void _resolve_osm_ways(std::string inputfile) {
     file.getGroup("osm").createDataSet("polygons", ds,
                                        HighFive::AtomicType<double>(), props);
     file.getGroup("osm").createDataSet("polygons_idx", ds,
-                                       HighFive::AtomicType<uint32_t>(), props);  
+                                       HighFive::AtomicType<uint32_t>(), props);
   }
 
   // open created datasets
@@ -187,15 +189,16 @@ void _resolve_osm_ways(std::string inputfile) {
 
     // load linestrings
     if (is_area && linestring.front() == linestring.back()) {
-      // TODO: triangulate, create and fill triangle table, keep track of indices (map table)
-      emit_polygon(linestring);
+      // TODO: triangulate, create and fill triangle table, keep track of
+      // indices (map table) emit_polygon(linestring);
     }
 
     emit_linestring(linestring);
 
 #ifdef DEBUG_TRUNCATE
     // Debug TRuncate will run this operation, but only to 1% of the input
-    if ((double)i / (double)n_ways > 0.01) break;
+    if ((double)i / (double)n_ways > 0.01)
+      break;
 #endif
     if (i % 100 == 0)
       std::cout << "Progress: " << (double)i / (double)n_ways << "\r";
@@ -212,7 +215,8 @@ void _resolve_osm_relations(std::string inputfile) {
   std::cout << "Way count: " << ways.size() << std::endl;
 
   std::map<uint64_t, uint64_t> osm2row;
-  for (size_t i = 0; i < ways.size(); i++) osm2row[ways[i]] = i;
+  for (size_t i = 0; i < ways.size(); i++)
+    osm2row[ways[i]] = i;
   ways.clear();
 
   // create datasets
@@ -223,21 +227,18 @@ void _resolve_osm_relations(std::string inputfile) {
     props.add(HighFive::Chunking(std::vector<hsize_t>{1024 * 1024, 2}));
     props.add(HighFive::Deflate(9));
 
-                                 
-  // create the triangle datasets (triangle and trin_idx) 
-  // TRIANGLE TABLE*
+    // create the triangle datasets (triangle and trin_idx)
+    // TRIANGLE TABLE*
     file.getGroup("osm").createDataSet("triangles", ds,
                                        HighFive::AtomicType<double>(), props);
     file.getGroup("osm").createDataSet("triangles_idx", ds,
-                                       HighFive::AtomicType<uint32_t>(), props); 
+                                       HighFive::AtomicType<uint32_t>(), props);
 
-  // TODO: create mapping table (between polygon and triangles),is this mapping_idx just a colomn?
-  // MAPPING TABLE*
+    // TODO: create mapping table (between polygon and triangles),is this
+    // mapping_idx just a colomn? MAPPING TABLE*
     file.getGroup("osm").createDataSet("mapping_idx", ds,
-                                      HighFive::AtomicType<double>(), props); 
-
+                                       HighFive::AtomicType<double>(), props);
   }
-
 
   // open triangle dataset
   // create indirection Appender for triangles
@@ -269,7 +270,8 @@ void _resolve_osm_relations(std::string inputfile) {
     // deserialize tags
     picojson::value tags;
     auto err = picojson::parse(tags, attr[0]);
-    if (!err.empty()) std::cerr << err << std::endl;
+    if (!err.empty())
+      std::cerr << err << std::endl;
 
     // process only type=multipolygon
     if (!tags.contains("type") || tags.get("type").to_str() != "multipolygon") {
@@ -282,61 +284,61 @@ void _resolve_osm_relations(std::string inputfile) {
 
     picojson::value members;
     err = picojson::parse(members, refs[0]);
-    if (!err.empty()) std::cerr << err << std::endl;
+    if (!err.empty())
+      std::cerr << err << std::endl;
 
     // assemble linestrings
-    std::vector<Linestrig> polygon;
-    for (const auto &m : meresolve_osm_geometrymbers.get<picojson::array>()) {
+    Polygon polygon;
+    for (const auto &m : members.get<picojson::array>()) {
       // only process well formed members
       auto role = m.get("role").get<std::string>();
-      if (!(role == "outer" || role == "inner")) continue;
+      if (!(role == "outer" || role == "inner"))
+        continue;
 
-      auto row = osm2row[the_linestrings(size_t)m.get("member_id").get<double>()];
-      Linestrig linestringdata;
+      auto row = osm2row[(size_t)m.get("member_id").get<double>()];
+      Linestring linestringdata;
       linestrings.select({row, 0}, {1, 1}).read(linestringdata);
       // TODO: Assemble a linestring WKB either immediately or with some help of
-      // libs Lines_resolve_osm_relationstrings are modeled as an indirection of points. That is,
-      // there are two tables linestring_points and linestring_indices to be
-      // written.
+      // libs Lines_resolve_osm_relationstrings are modeled as an indirection of
+      // points. That is, there are two tables linestring_points and
+      // linestring_indices to be written.
       polygon.push_back(linestringdata);
     }
 
     // TODO: compose and triangulate
-    std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
+    auto indices = triangulation::earcut(polygon);
     // flatten points of polygon
     std::vector<Point> points;
-    for (auto const &ls : polygon)
-    {
+    for (auto const &ls : polygon) {
       points.insert(points.end(), ls.begin(), ls.end());
     }
 
     // assemble triangles
     std::vector<std::vector<Point>> triangles;
-    for (auto i = 0; i < indices.size() / 3; i++)
-    {
+    for (size_t i = 0; i < indices.size() / 3; i++) {
       std::vector<Point> triangle;
       std::cout << "Triangle [";
-      for (auto j = 0; j < 3; j++)
-      {
+      for (auto j = 0; j < 3; j++) {
         triangle.push_back(points[i * 3 + j]);
-        std::cout << " " << points[i * 3 + j];
+        std::cout << "[" << points[i * 3 + j][0] << ", " << points[i * 3 + j][1]
+                  << "]";
       }
       std::cout << " ]" << std::endl;
       break;
 
-      triangles.push_back(triangle); 
+      triangles.push_back(triangle);
     }
-  
+
     // TODO: write to trinagles table in h5
-    Linestrig tri_linestrings = 
 
     // TODO: load triangles
-    // firstly show the result of earcut, figure the format of results out 
+    // firstly show the result of earcut, figure the format of results out
     // emit_triangles(tri_linestrings)
 
 #ifdef DEBUG_TRUNCATE
     // Debug TRuncate will run this operation, but only to 1% of the input
-    if ((double)i / (double)n_ways > 0.01) break;
+    if ((double)i / (double)n_ways > 0.01)
+      break;
 #endif
     if (i % 100 == 0)
       std::cout << "Progress: " << (double)i / (double)n_relations << "\r";
@@ -344,9 +346,9 @@ void _resolve_osm_relations(std::string inputfile) {
   }
 }
 
-bool resolve_osm_geometrythe_linestrings(std::string inputfile, std::string output) {
+bool resolve_osm_geometry(std::string inputfile, std::string output) {
   _resolve_osm_ways(inputfile);
-  //_resolve_osm_relations(inputfile);
+  _resolve_osm_relations(inputfile);
 
   return true;
 }
