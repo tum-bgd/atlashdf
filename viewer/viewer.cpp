@@ -123,10 +123,39 @@ class MyDataEngine :public DataEngine
 		   glEnd();
 		}
 
+		// render filled polygons
+		glColor3f(0,0,0); // black
+		int warnings=0; 
+		glBegin(GL_TRIANGLES);
+		for (const auto &t: ds.triangles_idx)
+		{
+		    for (int i=t[0]; i < t[1]; i+= 3) // a triangle forward
+		    {
+			// @todo: hack: there are data problems 0/0 in coordinates
+			if (
+			    (fabs(ds.triangles[i][0])<0.001 && fabs(ds.triangles[i][1])<0.001) || 
+			    (fabs(ds.triangles[i+1][0])<0.001 && fabs(ds.triangles[i+1][1])<0.001) || 
+			    (fabs(ds.triangles[i+2][0])<0.001 && fabs(ds.triangles[i+2][1])<0.001)
+			    )
+			    {
+			    warnings ++;
+			    continue;
+			    }
+			glVertex2f(ds.triangles[i][0],ds.triangles[i][1]);
+			glVertex2f(ds.triangles[i+1][0],ds.triangles[i+1][1]);
+			glVertex2f(ds.triangles[i+2][0],ds.triangles[i+2][1]);
+			
+		    }
+		}
+		glEnd();
+		
+
 	        }
 		
 		virtual void mouseClick(size_t x, size_t y)
 		{
+		    auto loc = zoompan.clientProject(x,y);
+		    std::cout << "Clicked: " << loc.first << "/" << loc.second << std::endl;
 		}
 		
 		virtual void mouseDragging(size_t from_x,size_t from_y, size_t to_x,size_t to_y)
