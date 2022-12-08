@@ -131,22 +131,13 @@ class MyDataEngine :public DataEngine
 		{
 		    for (int i=t[0]; i < t[1]; i+= 3) // a triangle forward
 		    {
-			// @todo: hack: there are data problems 0/0 in coordinates
-			if (
-			    (fabs(ds.triangles[i][0])<0.001 && fabs(ds.triangles[i][1])<0.001) || 
-			    (fabs(ds.triangles[i+1][0])<0.001 && fabs(ds.triangles[i+1][1])<0.001) || 
-			    (fabs(ds.triangles[i+2][0])<0.001 && fabs(ds.triangles[i+2][1])<0.001)
-			    )
-			    {
-			    warnings ++;
-			    continue;
-			    }
 			glVertex2f(ds.triangles[i][0],ds.triangles[i][1]);
 			glVertex2f(ds.triangles[i+1][0],ds.triangles[i+1][1]);
 			glVertex2f(ds.triangles[i+2][0],ds.triangles[i+2][1]);
 			
 		    }
 		}
+
 		glEnd();
 		
 

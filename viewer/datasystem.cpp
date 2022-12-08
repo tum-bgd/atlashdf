@@ -32,9 +32,13 @@ bool DataSystem::Load(std::string filename)
 			    )
 			    {
 			    warnings ++;
-			    
-			    }else{
+			    #ifdef SHOW_ZEROPOINT_WRONG_TRIANGLES
 			    triangles_idx.push_back(t);
+			    #endif
+			    }else{
+			    
+			    triangles_idx.push_back(t);
+			    
 			    }
 			    }
 			    }
