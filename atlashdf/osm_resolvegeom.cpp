@@ -249,7 +249,7 @@ void _resolve_osm_relations(std::string inputfile) {
 
     // process only type=multipolygon
     if (!tags.contains("type") || tags.get("type").to_str() != "multipolygon") {
-      emit_triangles({{}});
+      emit_triangles({});
       continue;
     }
 
