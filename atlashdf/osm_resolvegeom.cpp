@@ -7,6 +7,7 @@
 #include <highfive/H5Easy.hpp>
 #include <picojson.h>
 
+#include "osm_filter.hpp"
 #include "triangulation.hpp"
 
 using Point = std::vector<double>;
@@ -61,25 +62,6 @@ public:
   }
 };
 
-// const std::vector<std::string> AREA_KEYS = {
-//     "building", "landuse",  "amenity", "shop",        "building:part",
-//     "boundary", "historic", "place",   "area:highway"};
-
-// const std::map<std::string, std::vector<std::string>> AREA_TAGS = {
-//     {"area", {"yes"}},
-//     {"waterway", {"riverbank"}},
-//     {"highway", {"rest_area", "services", "platform"}},
-//     {"railway", {"platform"}},
-//     {"natural",
-//      {"water",     "wood",      "scrub",    "wetland", "grassland", "heath",
-//       "rock",      "bare_rock", "sand",     "beach",   "scree",     "bay",
-//       "glacier",   "shingle",   "fell",     "reef",    "stone",     "mud",
-//       "landslide", "sinkhole",  "crevasse", "desert"}},
-//     {"aeroway", {"aerodrome"}}};
-
-// const std::map<std::string, std::vector<std::string>> AREA_TAGS_NOT = {
-//     {"leisure", {"picnic_table", "slipway", "firepit"}}};
-
 void _resolve_osm_ways(std::string inputfile) {
   std::cout << "Resolving ways..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
@@ -105,14 +87,21 @@ void _resolve_osm_ways(std::string inputfile) {
                                        HighFive::AtomicType<double>(), props);
     file.getGroup("osm").createDataSet("linestrings_idx", ds,
                                        HighFive::AtomicType<uint32_t>(), props);
+    file.getGroup("osm").createDataSet("ways_triangles", ds,
+                                       HighFive::AtomicType<double>(), props);
+    file.getGroup("osm").createDataSet("ways_triangles_idx", ds,
+                                       HighFive::AtomicType<uint32_t>(), props);
   }
 
   // open created datasets
   HighFive::DataSet linestrings_ds = file.getDataSet("/osm/linestrings");
   HighFive::DataSet linestrings_idx = file.getDataSet("/osm/linestrings_idx");
+  HighFive::DataSet triangles_ds = file.getDataSet("/osm/ways_triangles");
+  HighFive::DataSet triangles_idx = file.getDataSet("/osm/ways_triangles_idx");
 
   IndirectionAppender<double, 2> emit_linestring(linestrings_ds,
                                                  linestrings_idx);
+  IndirectionAppender<double, 2> emit_triangles(triangles_ds, triangles_idx);
 
   // process ways
   size_t n_ways = H5Easy::getSize(file, "/osm/ways");
@@ -158,22 +147,24 @@ void _resolve_osm_ways(std::string inputfile) {
     }
 
     // check for area feature
-    // bool is_area =
-    //     std::any_of(AREA_KEYS.begin(), AREA_KEYS.end(),
-    //                 [&v](auto &key) { return v.contains(key); }) ||
-    //     std::any_of(AREA_TAGS.begin(), AREA_TAGS.end(),
-    //                 [&v](const auto &tag) {
-    //                   return std::find(tag.second.begin(), tag.second.end(),
-    //                                    v.get(tag.first).to_str()) !=
-    //                          tag.second.end();
-    //                 }) ||
-    //     std::any_of(AREA_TAGS_NOT.begin(), AREA_TAGS_NOT.end(),
-    //                 [&v](const auto &tag) {
-    //                   return v.contains(tag.first) &&
-    //                          !(std::find(tag.second.begin(), tag.second.end(),
-    //                                      v.get(tag.first).to_str()) !=
-    //                            tag.second.end());
-    //                 });
+    bool is_area =
+        osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT);
+    
+    if (is_area) {
+      // triangulate
+      auto indices = triangulation::earcut({linestring});
+
+      // assemble triangles as a contiguous set of coordinates (linestring)
+      std::vector<Point> triangles;
+      for (auto const &i : indices) {
+        triangles.push_back(linestring[i]);
+      }
+
+      // write triangles
+      emit_triangles(triangles);
+    } else {
+      emit_triangles({});
+    }
 
     // load linestrings
     emit_linestring(linestring);
@@ -210,18 +201,18 @@ void _resolve_osm_relations(std::string inputfile) {
     props.add(HighFive::Chunking(std::vector<hsize_t>{1024 * 1024, 2}));
     props.add(HighFive::Deflate(9));
 
-    // create the triangle datasets (triangle and triangles_idx)
-    file.getGroup("osm").createDataSet("triangles", ds,
+    file.getGroup("osm").createDataSet("relations_triangles", ds,
                                        HighFive::AtomicType<double>(), props);
-    file.getGroup("osm").createDataSet("triangles_idx", ds,
+    file.getGroup("osm").createDataSet("relations_triangles_idx", ds,
                                        HighFive::AtomicType<uint32_t>(), props);
   }
 
   // open triangle dataset
-  HighFive::DataSet triangles_ds = file.getDataSet("/osm/triangles");
-  HighFive::DataSet triangles_idx = file.getDataSet("/osm/triangles_idx");
+  HighFive::DataSet triangles_ds = file.getDataSet("/osm/relations_triangles");
+  HighFive::DataSet triangles_idx =
+      file.getDataSet("/osm/relations_triangles_idx");
 
-  // create indirection Appender for triangles
+  // create indirection appender for triangles
   IndirectionAppender<double, 2> emit_triangles(triangles_ds, triangles_idx);
 
   // process relations
@@ -234,7 +225,8 @@ void _resolve_osm_relations(std::string inputfile) {
   HighFive::DataSetAccessProps aprops;
   aprops.add(HighFive::Caching(512, 64 * 1024 * 1024, 0.5));
   HighFive::DataSet linestrings = file.getDataSet("/osm/linestrings", aprops);
-  HighFive::DataSet linestrings_idx = file.getDataSet("/osm/linestrings_idx", aprops);
+  HighFive::DataSet linestrings_idx =
+      file.getDataSet("/osm/linestrings_idx", aprops);
 
   for (size_t i = 0; i < n_relations; i++) {
     // fetch relation tags
