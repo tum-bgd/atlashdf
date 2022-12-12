@@ -12,23 +12,30 @@ protected:
 std::string hdf_container;
 int chunk_size = 1024;
 public:
-  AtlasHDF& set_container(std::string filename, bool truncate = false){
+  AtlasHDF() :hdf_container(""){}
+  AtlasHDF& set_container(std::string filename){
       hdf_container = filename;
-      if (truncate) {
+      if (false) {
 	  FILE *f = fopen(filename.c_str(),"w");
 	  if (f == NULL) throw(std::runtime_error("Cannot truncate " + filename));
 	  fclose(f);
        }
-       return *this;
+       return *this; // method chaining by returning a self-reference
   }
-  void import(std::string filename)
+  
+  AtlasHDF &import(std::string filename)
   {
+      if (hdf_container == "")
+        throw(std::runtime_error("Run set_container before import"));
       std::cout << "Import called" << std::endl;
       import_osm_immediate(filename,
                            hdf_container,
                            chunk_size);
-      
+      return *this;
   }
+  
+
+  
 };
 
 
