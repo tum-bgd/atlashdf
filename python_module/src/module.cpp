@@ -2,6 +2,34 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 #include <vector>
+// The AtlasHDF module
+#include <osm_immediate.h>
+//#include <osm_resolvegeom.h>
+
+class AtlasHDF
+{
+protected:
+std::string hdf_container;
+int chunk_size = 1024;
+public:
+  AtlasHDF& set_container(std::string filename, bool truncate = false){
+      hdf_container = filename;
+      if (truncate) {
+	  FILE *f = fopen(filename.c_str(),"w");
+	  if (f == NULL) throw(std::runtime_error("Cannot truncate " + filename));
+	  fclose(f);
+       }
+       return *this;
+  }
+  void import(std::string filename)
+  {
+      std::cout << "Import called" << std::endl;
+      import_osm_immediate(filename,
+                           hdf_container,
+                           chunk_size);
+      
+  }
+};
 
 
 // -------------
@@ -57,8 +85,15 @@ py::array wrap(vtype v)
 PYBIND11_MODULE(atlashdf,m)
 {
   m.doc() = "atlashdf module";
+ py::class_<AtlasHDF>(m, "AtlasHDF")
+    .def(py::init<>())
+    .def("import_immediate", &AtlasHDF::import)
+    .def("set_container", &AtlasHDF::set_container)
+    ;
 
-  m.def("multiply", &py_multiply, "Convert all entries of an 1-D NumPy-array to int and multiply by 10");
+
+  
+//  m.def("multiply", &py_multiply, "Convert all entries of an 1-D NumPy-array to int and multiply by 10");
 }
 
 

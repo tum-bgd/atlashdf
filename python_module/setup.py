@@ -6,8 +6,11 @@ from pybind11.setup_helpers import Pybind11Extension
 ext_modules = [
     Pybind11Extension(
         "atlashdf",
-        sorted(glob("src/*.cpp")),  # Sort source files for reproducibility
-        #extra_link_args=[""],
+        sorted(list(glob("src/*.cpp")) + ["../atlashdf/osm_immediate.cpp"]),  # Sort source files for reproducibility
+        include_dirs=['../atlashdf', '../include', '/usr/include/hdf5/serial'],
+        library_dirs=["/usr/lib/x86_64-linux-gnu/hdf5/serial" ],
+        libraries=["hdf5"],
+        extra_link_args=["-lprotobuf-lite", "-losmpbf", "-lz"],
     ),
 ]
 
@@ -20,6 +23,7 @@ setup(
     long_description='',
     # add extension module
     ext_modules=ext_modules,
+
     # add custom build_ext command
     #cmdclass=dict(build_ext=CMakeBuild),
     #zip_safe=False,
