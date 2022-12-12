@@ -62,7 +62,7 @@ public:
   }
 };
 
-void _resolve_osm_ways(std::string inputfile) {
+void _resolve_osm_ways(std::string inputfile, std::string method) {
   std::cout << "Resolving ways..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
 
@@ -146,25 +146,18 @@ void _resolve_osm_ways(std::string inputfile) {
       std::cerr << err << std::endl;
     }
 
-    // check for area feature
-    bool is_area =
-        osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT);
-    
-    if (is_area) {
+    // assemble triangles as a contiguous set of coordinates (linestring)
+    std::vector<Point> triangles;
+    if (osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT)) {
       // triangulate
-      auto indices = triangulation::earcut({linestring});
-
-      // assemble triangles as a contiguous set of coordinates (linestring)
-      std::vector<Point> triangles;
-      for (auto const &i : indices) {
-        triangles.push_back(linestring[i]);
+      if (method == "earcut") {
+        triangles = triangulation::earcut({linestring});
+      } else if (method == "martin") {
+        triangles = triangulation::martin({linestring});
       }
-
-      // write triangles
-      emit_triangles(triangles);
-    } else {
-      emit_triangles({});
     }
+    // load triangles
+    emit_triangles(triangles);
 
     // load linestrings
     emit_linestring(linestring);
@@ -180,7 +173,7 @@ void _resolve_osm_ways(std::string inputfile) {
   }
 }
 
-void _resolve_osm_relations(std::string inputfile) {
+void _resolve_osm_relations(std::string inputfile, std::string method) {
   std::cout << "Resolving relations..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
 
@@ -194,7 +187,7 @@ void _resolve_osm_relations(std::string inputfile) {
   ways.clear();
 
   // create datasets
-  if (!file.getGroup("osm").exist("triangles")) {
+  if (!file.getGroup("osm").exist("relations_triangles")) {
     HighFive::DataSpace ds =
         HighFive::DataSpace({0, 2}, {HighFive::DataSpace::UNLIMITED, 2});
     HighFive::DataSetCreateProps props;
@@ -245,6 +238,8 @@ void _resolve_osm_relations(std::string inputfile) {
       continue;
     }
 
+    std::cout << tags.serialize() << std::endl;
+
     // fetch refs (members)
     std::vector<std::string> refs;
     relations_refs.select({i, 0}, {1, 1}).read(refs);
@@ -255,39 +250,51 @@ void _resolve_osm_relations(std::string inputfile) {
       std::cerr << err << std::endl;
 
     // assemble linestrings
-    Polygon polygon;
+    std::vector<Polygon> polygons;
+    size_t next = 0;
     for (const auto &m : members.get<picojson::array>()) {
       // only process well formed members
       auto role = m.get("role").get<std::string>();
       if (!(role == "outer" || role == "inner"))
         continue;
 
+      std::cout << m.serialize() << std::endl;
+
       // read linestring
+      std::cout << "Read linestring... " << std::endl;
       Linestring linestringdata;
       std::vector<uint32_t> idx;
       auto row = osm2row[(size_t)m.get("member_id").get<double>()];
       linestrings_idx.select({row, 0}, {1, 2}).read(idx);
       linestrings.select({idx[0], 0}, {idx[1] - idx[0], 2})
           .read(linestringdata);
-      polygon.push_back(linestringdata);
+      
+      // TODO: need some polygonize magic for assembling the members.
+      std::cout << "Assemble... " << std::endl;
+      if (role == "outer") {
+        polygons.push_back({linestringdata});
+        next++;
+      }
+      if (role == "inner") {
+        polygons[next - 1].push_back({linestringdata});
+      }
     }
 
     // triangulate
-    auto indices = triangulation::earcut(polygon);
-
-    // flatten points of polygon
-    std::vector<Point> points;
-    for (auto const &ls : polygon) {
-      points.insert(points.end(), ls.begin(), ls.end());
-    }
-
-    // assemble triangles as a contiguous set of coordinates (linestring)
+    std::cout << "Triangulate... " << std::endl;
     std::vector<Point> triangles;
-    for (auto const &i : indices) {
-      triangles.push_back(points[i]);
+    for (const auto &p : polygons) {
+      if (method == "earcut") {
+        for (const auto &t : triangulation::earcut(p))
+          triangles.push_back(t);
+
+      } else if (method == "martin") {
+        for (const auto &t : triangulation::martin(p))
+          triangles.push_back(t);
+      }
     }
 
-    // write triangles
+    // load triangles
     emit_triangles(triangles);
 
 #ifdef DEBUG_TRUNCATE
@@ -301,9 +308,11 @@ void _resolve_osm_relations(std::string inputfile) {
   }
 }
 
-bool resolve_osm_geometry(std::string inputfile, std::string output) {
-  _resolve_osm_ways(inputfile);
-  _resolve_osm_relations(inputfile);
+bool resolve_osm_geometry(std::string inputfile, std::string output,
+                          std::string method) {
+  std::cout << "Resolving geometries using " << method << std::endl;
+  // _resolve_osm_ways(inputfile, method);
+  _resolve_osm_relations(inputfile, method);
 
   return true;
 }
