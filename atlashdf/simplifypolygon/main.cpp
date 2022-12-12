@@ -49,29 +49,36 @@ void triangulate(polygon in, polycontainer &out) {
 
   Let us see the impact on global scale and maybe try to "re-use" the nearest
   true coordinate from the input
-
   */
+
   // integer rounding for polygon
   namespace trans = boost::geometry::strategy::transform;
+
   bg::model::box<typename polygon::ring_type::value_type> bounds;
+
+  // translate
   bg::envelope(in, bounds);
-  trans::translate_transformer<double, 2, 2> translate(
-      -bg::get<0>(bounds.min_corner()), -bg::get<1>(bounds.min_corner()));
-  trans::translate_transformer<double, 2, 2> backtranslate(
-      bg::get<0>(bounds.min_corner()), bg::get<1>(bounds.min_corner()));
+  double minx = bg::get<0>(bounds.min_corner());
+  double miny = bg::get<1>(bounds.min_corner());
+  trans::translate_transformer<double, 2, 2> translate(-minx, -miny);
+  trans::translate_transformer<double, 2, 2> backtranslate(minx, miny);
+
   polygon in2;
   bg::transform(in, in2, translate);
-  bg::envelope(in, bounds);
-  // slightly less than 32 bit signed range
-  double _scale =
-      (double)2147000000 * std::max(bg::get<0>(bounds.max_corner()),
-                                    bg::get<1>(bounds.max_corner()));
 
-  trans::scale_transformer<double, 2, 2> scale(_scale);
-  trans::scale_transformer<double, 2, 2> invscale(1 / _scale);
+  // scale
+  bg::envelope(in2, bounds);
+  // slightly less than 32 bit signed range
+  double scale_factor =
+      (double)2147000000 / std::max(bg::get<0>(bounds.max_corner()),
+                                    bg::get<1>(bounds.max_corner()));
+  trans::scale_transformer<double, 2, 2> scale(scale_factor);
+  trans::scale_transformer<double, 2, 2> invscale(1 / scale_factor);
+
   polygon in3;
   bg::transform(in2, in3, scale);
 
+  // extract vertices
   using Point = bp::point_data<int32_t>;
   std::vector<Point> vertices;
   for (const auto &p : in3.outer())
@@ -84,13 +91,15 @@ void triangulate(polygon in, polycontainer &out) {
 
   std::cout << "vertices: " << vertices.size() << std::endl;
   for (const auto p : vertices) {
-
     std::cout << "Using " << p.x() << ";" << p.y() << " as integral coords"
               << std::endl;
   }
+
+  // voronoi
   boost::polygon::voronoi_diagram<double> vd;
   boost::polygon::construct_voronoi(vertices.begin(), vertices.end(), &vd);
   std::cout << "vd.vertices:" << vd.vertices().size() << std::endl;
+
   for (const auto &vertex : vd.vertices()) {
 
     std::vector<Point> triangle;
@@ -116,7 +125,6 @@ void triangulate(polygon in, polycontainer &out) {
         bg::centroid(triangle1, c);
         if (bg::within(c, in)) {
           out.push_back(triangle1);
-          //   std::cout << bg::wkt(triangle1) << std::endl;
         }
         triangle.erase(triangle.begin() + 1);
       }
@@ -139,21 +147,26 @@ void fracture(const polygon &in, polycontainer &out) {
 
   using namespace boost::polygon::operators;
 
+  // Extract outer ring
   std::vector<Point> points;
   for (const auto &p : in.outer()) {
     points.push_back({bg::get<0>(p), bg::get<1>(p)});
   }
+
   ComplexPolygon p;
   bp::set_points(p, points.begin(), points.end());
 
-  // Outer ring is set.
+  // Output outer ring
   std::ofstream rings("rings.dat");
+  std::cout << "Outer ring:" << std::endl;
   for (const Point &_p : p) {
     rings << std::to_string(_p.x()) << " " << std::to_string(_p.y())
           << std::endl;
     std::cout << '\t' << std::to_string(_p.x()) << ", "
               << std::to_string(_p.y()) << '\n';
   }
+
+  // Extract inner rings
   std::vector<SimplePolygon> inner;
   for (const auto &ring : in.inners()) {
     points.clear();
@@ -163,7 +176,9 @@ void fracture(const polygon &in, polycontainer &out) {
     bp::set_points(inner_polygon, points.begin(), points.end());
     inner.push_back(inner_polygon);
   }
+
   bp::set_holes(p, inner.begin(), inner.end());
+
   // inner rings have been marshaled, now ComplexPolygon is complete
   PolygonSet complexPolygons;
   complexPolygons += p;
@@ -190,66 +205,46 @@ void fracture(const polygon &in, polycontainer &out) {
     fractured << "NaN NaN" << std::endl;
   }
 }
-using Coord = float;
-using Point = std::array<Coord, 2>;
-std::vector<std::vector<Point>> polygon;
-std::vector<Point> points;
 
-// define a ostream &operator function,how to print the points out
-std::ostream &operator<<(std::ostream &os, const Point &point) {
-  os << "(" << point[0] << ", " << point[1] << ')';
-  return os;
-}
 int main() {
 
-  typedef boost::geometry::model::polygon<
-      boost::geometry::model::d2::point_xy<double>>
-      polygon;
+  typedef boost::geometry::model::d2::point_xy<double> point;
+  typedef boost::geometry::model::polygon<point> polygon;
+  typedef boost::geometry::model::multi_polygon<polygon> multipolygon;
 
+  // test input
   polygon poly;
-  // the input data as test
   boost::geometry::read_wkt("POLYGON((0 3, 6 0, 8 2, 7.5 3, 7 2.5, 6.5 3.5, 6 "
                             "3, 5.5 4, 5 3.5, 4.5 4.5, 4 4, 3.5 5, 3 4, 0 3),"
-                            "(4 2, 5 1.5, 5 2.5, 4 3, 4 2)"
-                            ")",
+                            "(4 2, 5 1.5, 5 2.5, 4 3, 4 2))",
                             poly);
-  // creat the polygon named by simple
+
+  // creat simple polygons
   std::vector<polygon> simple;
   fracture(poly, simple);
 
   std::cout << "Simple now contains " << simple.size() << " polygons."
             << std::endl;
 
-  // bg::wkt(indices)<<"\n";
-  // save the results in result.wkt file
-  /*
-   std::ofstream f;
-   f.open("result.wkt");
+  for (const auto &p : simple) {
+    std::cout << "\t" << bg::wkt(p) << std::endl;
+  }
 
-   for (int i; i <=17;i++)
-   {
-     f<< bg :: wkt(triangles[i]);
-   }
-   f.close();
- */
-  // std::vector<polygon> simple;
-  // fracture(polygon, simple);
-  // for (const auto &p : simple)
-  // {
-  //   std::cout << "\t" << bg::wkt(p) << std::endl;
-  // }
-  // simple.clear();
-  // //apple the triangulate function to our created polygon
-  // triangulate(polygon, simple);
-  // //created file and write the results in result.wkt
-  /*
+  // triangulate
+  std::vector<polygon> triangles;
+  triangulate(poly, triangles);
+
+  // convert to mulitpolygon
+  multipolygon mp;
+  for (const auto t : triangles) {
+    mp.push_back(t);
+  }
+
+  // created file and write the results in result.wkt
   std::ofstream f;
   f.open("result.wkt");
-  for (const auto p : simple)
-  {
-    f << bg::wkt(p);
-  }
+  f << bg::wkt(mp);
   f.close();
-  */
+
   return 0;
 }
