@@ -8,6 +8,7 @@
 #include <picojson.h>
 
 #include "osm_filter.hpp"
+#include "polygonize.hpp"
 #include "triangulation.hpp"
 
 using Point = std::vector<double>;
@@ -238,8 +239,6 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
       continue;
     }
 
-    std::cout << tags.serialize() << std::endl;
-
     // fetch refs (members)
     std::vector<std::string> refs;
     relations_refs.select({i, 0}, {1, 1}).read(refs);
@@ -249,41 +248,37 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
     if (!err.empty())
       std::cerr << err << std::endl;
 
-    // assemble linestrings
-    std::vector<Polygon> polygons;
-    size_t next = 0;
+    // fetch linestrings
+    std::vector<linestring> outers;
+    std::vector<linestring> inners;
+
     for (const auto &m : members.get<picojson::array>()) {
       // only process well formed members
       auto role = m.get("role").get<std::string>();
       if (!(role == "outer" || role == "inner"))
         continue;
 
-      std::cout << m.serialize() << std::endl;
-
       // read linestring
-      std::cout << "Read linestring... " << std::endl;
       Linestring linestringdata;
       std::vector<uint32_t> idx;
       auto row = osm2row[(size_t)m.get("member_id").get<double>()];
       linestrings_idx.select({row, 0}, {1, 2}).read(idx);
       linestrings.select({idx[0], 0}, {idx[1] - idx[0], 2})
           .read(linestringdata);
-      
-      // TODO: need some polygonize magic for assembling the members.
-      std::cout << "Assemble... " << std::endl;
+
       if (role == "outer") {
-        polygons.push_back({linestringdata});
-        next++;
-      }
-      if (role == "inner") {
-        polygons[next - 1].push_back({linestringdata});
+        outers.push_back(linestringdata);
+      } else if (role == "inner") {
+        inners.push_back(linestringdata);
       }
     }
 
+    // assemble linestrings (polygonize)
+    std::vector<Polygon> mp = polygonize(outers, inners);
+
     // triangulate
-    std::cout << "Triangulate... " << std::endl;
     std::vector<Point> triangles;
-    for (const auto &p : polygons) {
+    for (const auto &p : mp) {
       if (method == "earcut") {
         for (const auto &t : triangulation::earcut(p))
           triangles.push_back(t);
@@ -311,7 +306,7 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
 bool resolve_osm_geometry(std::string inputfile, std::string output,
                           std::string method) {
   std::cout << "Resolving geometries using " << method << std::endl;
-  // _resolve_osm_ways(inputfile, method);
+  _resolve_osm_ways(inputfile, method);
   _resolve_osm_relations(inputfile, method);
 
   return true;

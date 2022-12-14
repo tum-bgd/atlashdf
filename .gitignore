@@ -1,5 +1,6 @@
 data
 atlashdf/atlashdf
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

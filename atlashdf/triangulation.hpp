@@ -59,7 +59,6 @@ earcut(std::vector<std::vector<std::vector<double>>> polygon) {
 
 std::vector<std::vector<double>>
 martin(std::vector<std::vector<std::vector<double>>> coords) {
-  std::vector<std::vector<double>> out;
   /*
   Strategy: Build all cells of Delaunay triangulation and check if they are
   "within" the polygon given. Not fastest, but easiest to implement, hence,
@@ -72,7 +71,6 @@ martin(std::vector<std::vector<std::vector<double>>> coords) {
   true coordinate from the input
   */
 
-  std::cout << "Create input polygon... " << std::endl;
   polygon in;
   for (const auto &c : coords[0]) {
     in.outer().push_back({c[0], c[1]});
@@ -89,7 +87,6 @@ martin(std::vector<std::vector<std::vector<double>>> coords) {
   bg::model::box<typename polygon::ring_type::value_type> bounds;
 
   // translate
-  std::cout << "translate... " << std::endl;
   bg::envelope(in, bounds);
   double minx = bg::get<0>(bounds.min_corner());
   double miny = bg::get<1>(bounds.min_corner());
@@ -100,7 +97,6 @@ martin(std::vector<std::vector<std::vector<double>>> coords) {
   bg::transform(in, in2, translate);
 
   // scale
-  std::cout << "scale... " << std::endl;
   bg::envelope(in2, bounds);
   // slightly less than 32 bit signed range
   double scale_factor =
@@ -113,7 +109,6 @@ martin(std::vector<std::vector<std::vector<double>>> coords) {
   bg::transform(in2, in3, scale);
 
   // extract vertices
-  std::cout << "extract vertices... " << std::endl;
   using Point = bp::point_data<int32_t>;
   std::vector<Point> vertices;
   for (const auto &p : in3.outer())
@@ -125,9 +120,11 @@ martin(std::vector<std::vector<std::vector<double>>> coords) {
                           static_cast<int32_t>(bg::get<1>(p))});
 
   // voronoi
-  std::cout << "construct voronoi... " << std::endl;
   boost::polygon::voronoi_diagram<double> vd;
   boost::polygon::construct_voronoi(vertices.begin(), vertices.end(), &vd);
+
+  // assemble triangles
+  std::vector<std::vector<double>> out;
 
   for (const auto &vertex : vd.vertices()) {
 
