@@ -67,6 +67,7 @@ struct Visitor {
   int N = 0;
   atlas::AtlasGroup g;
   atlas::ChunkedOSMImmediateWriter imwriter;
+  void set_jq_nodes(std::string s){imwriter.set_jq_nodes(s);};
   Visitor(std::string filename, std::string group, size_t chunksize)
       : g(filename, group), imwriter(g, chunksize) {}
   void progress(int bytes_read, int bytes_available) {
@@ -95,10 +96,15 @@ struct Visitor {
   }
 };
 
+// WIP: other queries need to be transported.
 void import_osm_immediate(std::string input, std::string output,
-                          size_t chunksize) {
+                          size_t chunksize, std::string nodes_query) {
 
   Visitor v(output, "osm", chunksize);
+  std::cout << "Nodes Query in import_osm_immediate given as " << nodes_query << std::endl;
+  #ifdef HAVE_JQ
+  v.set_jq_nodes(nodes_query);
+  #endif
   try {
     read_osm_pbf(input, v);
   } catch (interrupt i) {

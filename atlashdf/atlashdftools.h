@@ -5,6 +5,10 @@
 #include <highfive/H5DataSpace.hpp>
 #include <highfive/H5File.hpp>
 
+#ifdef HAVE_JQ
+#include <jqrunner.hpp>
+#endif
+
 namespace atlas
 {
 
@@ -95,11 +99,35 @@ struct ChunkedOSMImmediateWriter
     std::vector<std::vector<double>> coord_cache;
     std::vector<std::string> node_attribs;
     std::vector<uint64_t> node_ids;
+#ifdef HAVE_JQ
+    JQRunner *jq_nodes = NULL;
+    JQRunner *jq_ways = NULL;
+    JQRunner *jq_rels = NULL;
+
+    void set_jq_nodes(std::string query)
+    {
+        std::cout << "Activating a JQrunner with " << query << std::endl;
+	jq_nodes = new JQRunner(query);
+    }
+    
+#endif
     void node(uint64_t id, std::vector<double> coords, std::string attrib)
     {
 	if (coord_cache.size() > blocksize) {
 	  flush_nodes();
 	}
+#ifdef HAVE_JQ
+        if (jq_nodes != NULL && attrib != "") // if there are attributes; make osm id mandatory! Then this is not needed
+	{
+	   
+	   attrib  = (*jq_nodes)(attrib);
+	   	   
+	   if (attrib == "") // this enables select(...)
+	   
+	     return;
+	 }
+	   
+#endif
 	node_ids.push_back(id);
 	coord_cache.push_back(coords);
 	node_attribs.push_back(attrib);
