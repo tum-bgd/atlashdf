@@ -11,9 +11,22 @@
 #include "polygonize.hpp"
 #include "triangulation.hpp"
 
+#ifdef HAVE_JQ
+#include <jqrunner.hpp>
+#endif
+
+// todo: replace with boost geometry adn then also the distance computations
 using Point = std::vector<double>;
 using Linestring = std::vector<Point>;
 using Polygon = std::vector<Linestring>;
+
+double dist(const Point &a, const Point &b)
+{
+    // this is only for 2D points, and it is ugly. Use boost geometry instead
+    return sqrt( (b[0]-a[0])*(b[0]-a[0])+(b[1]-a[1])*(b[1]-a[1]));
+}
+
+
 
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
@@ -32,8 +45,9 @@ public:
   std::vector<std::vector<uint32_t>> icache;
 
   void flush() {
+  
     // Flush data
-    {
+    if (ccache.size() != 0){
       auto size = data.getDimensions();
       auto start = size[0];
       size[0] += ccache.size();
@@ -41,6 +55,7 @@ public:
       data.select({start, 0}, {ccache.size(), DIM}).write(ccache);
       ccache.clear();
     }
+    if (icache.size() != 0)
     {
       auto size = index.getDimensions();
       auto start = size[0];
@@ -63,9 +78,12 @@ public:
   }
 };
 
-void _resolve_osm_ways(std::string inputfile, std::string method) {
+void _resolve_osm_ways(std::string inputfile, std::string method, std::string query=".") {
   std::cout << "Resolving ways..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
+  #ifdef HAVE_JQ
+  JQRunner jq(query);
+  #endif
 
   // load node indices
   auto nodes = H5Easy::load<std::vector<uint64_t>>(file, "/osm/nodes");
@@ -127,6 +145,14 @@ void _resolve_osm_ways(std::string inputfile, std::string method) {
       elems.push_back(std::stoull(item));
     }
 
+
+ // check the linestring is closed (not, for example, a river)
+    // dist (linestring.front(), linestring.back())<1e-6
+    if(elems.front() != elems.back())
+    {
+	continue; // this is not a closed ring, hence, never an area
+    }
+
     // assemble coordinates
     Linestring linestring;
     for (const auto &e : elems) {
@@ -135,10 +161,18 @@ void _resolve_osm_ways(std::string inputfile, std::string method) {
       nodes_coords.select({row, 0}, {1, 2}).read(pointdata);
       linestring.push_back({pointdata[0], pointdata[1]});
     }
-
+    
+   
     // fetch way tags
     std::vector<std::string> attr;
     ways_attr.select({i, 0}, {1, 1}).read(attr);
+    //MARK: Here we could filter withcontinue?
+#ifdef HAVE_JQ
+    if (jq(attr[0]) == "")
+    {
+	continue;
+    }
+#endif
 
     // deserialize tags
     picojson::value v;
@@ -149,7 +183,14 @@ void _resolve_osm_ways(std::string inputfile, std::string method) {
 
     // assemble triangles as a contiguous set of coordinates (linestring)
     std::vector<Point> triangles;
-    if (osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT)) {
+    // this is an incompatible choice as filtering tags can destroy these assumptions
+    // for the future, I aim for having selection of triangulation done in python
+    // based on a JQ query and not here. Hence, a hack that brings this behavior to
+    // python, but keeps your idea for atlashdf binary for the moment
+    #ifndef HAVE_JQ
+    if (osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT))
+    #endif
+    {
       // triangulate
       if (method == "earcut") {
         triangles = triangulation::earcut({linestring});
@@ -304,10 +345,9 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
 }
 
 bool resolve_osm_geometry(std::string inputfile, std::string output,
-                          std::string method) {
+                          std::string method,std::string nodes_query,std::string ways_query,std::string relations_query) {
   std::cout << "Resolving geometries using " << method << std::endl;
-  _resolve_osm_ways(inputfile, method);
+  _resolve_osm_ways(inputfile, method, ways_query);
   _resolve_osm_relations(inputfile, method);
-
   return true;
 }
