@@ -16,11 +16,11 @@ jq = ["jq/%s"%(x) for x in jq]
 ext_modules = [
     Pybind11Extension(
         "atlashdf",
-        sorted(list(glob("src/*.cpp")) + ["../atlashdf/osm_immediate.cpp",'src/jq_shield.c']) ,  # Sort source files for reproducibility
+        sorted(list(glob("src/*.cpp")) + ["../atlashdf/osm_immediate.cpp","../atlashdf/osm_resolvegeom.cpp",'src/jq_shield.c']) ,  # Sort source files for reproducibility
         include_dirs=['./src','../atlashdf', '../include', '/usr/include/hdf5/serial','./jq/src'],
         library_dirs=["/usr/lib/x86_64-linux-gnu/hdf5/serial", "./jq/.libs","./jq/modules/oniguruma/src/.libs" ],
         libraries=["hdf5"],
-        extra_compile_args=["-DHAVE_JQ"],
+        extra_compile_args=["-DHAVE_JQ","-g"],
         extra_link_args=["-lprotobuf-lite", "-losmpbf", "-lz"],# + ["-ljq","-lonig"], ","","","","","","","","",
         extra_objects=["./jq/.libs/libjq.a","./jq/modules/oniguruma/src/.libs/libonig.a"]
     ),

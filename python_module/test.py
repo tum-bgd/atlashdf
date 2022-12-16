@@ -13,6 +13,11 @@ del(x)
 # now a transformation of berlin
 
 x = atlashdf.AtlasHDF();
-x.set_container("berlin.h5").set_nodes_filter("select(.ele!=null) | .").import_immediate("berlin-latest.osm.pbf")
+x = (x.set_container("berlin.h5")
+     .set_filter("nodes","select(.ele!=null) | .")
+     .set_filter("ways","select(.ele!=null) | .")
+     .set_filter("relations","select(.ele!=null) | .")
+     .import_immediate("berlin-latest.osm.pbf")
+     )
 
 

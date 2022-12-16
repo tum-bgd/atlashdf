@@ -5,14 +5,16 @@
 // The AtlasHDF module
 
 #include <osm_immediate.h>
-//#include <osm_resolvegeom.h>
+#include <osm_resolvegeom.h>
 
 class AtlasHDF
 {
 protected:
 std::string hdf_container;
 int chunk_size = 1024;
-std::string nodes_filter;
+//std::string nodes_filter;
+std::map<std::string, std::string> filters {{"nodes","."},{"ways","."},{"relations","."}};
+
 
 public:
   AtlasHDF() :hdf_container(""){}
@@ -25,9 +27,15 @@ public:
        }
        return *this; // method chaining by returning a self-reference
   }
-  AtlasHDF &set_nodes_filter(std::string filter)
+
+  AtlasHDF &clear_filters()
   {
-    nodes_filter = filter;
+      filters["nodes"]=filters["ways"]=filters["relations"]=".";
+      return *this;
+  }
+  AtlasHDF &set_filter(std::string scope, std::string filter)
+  {
+    filters[scope] = filter;
     return *this;
   }
   
@@ -37,9 +45,18 @@ public:
         throw(std::runtime_error("Run set_container before import"));
       import_osm_immediate(filename,
                            hdf_container,
-                           chunk_size, nodes_filter);
+                           chunk_size , filters["nodes"],filters["ways"],filters["relations"]);
       return *this;
   }
+
+  
+    AtlasHDF &resolve(std::string triangulation){
+	if (hdf_container == "")
+	    throw(std::runtime_error("Run set_container before import"));
+      resolve_osm_geometry(hdf_container,"notimplemented", 
+                          triangulation, filters["nodes"],filters["ways"],filters["relations"]);
+      	 return *this;
+    }
   
 
   
@@ -60,8 +77,10 @@ PYBIND11_MODULE(atlashdf,m)
  py::class_<AtlasHDF>(m, "AtlasHDF")
     .def(py::init<>())
     .def("import_immediate", &AtlasHDF::import)
-    .def("set_nodes_filter", &AtlasHDF::set_nodes_filter)
+    .def("set_filter", &AtlasHDF::set_filter)
+    .def("clear_filters",&AtlasHDF::clear_filters)
     .def("set_container", &AtlasHDF::set_container)
+    .def("resolve", &AtlasHDF::resolve)
     ;
 }
 
