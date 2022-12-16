@@ -91,3 +91,10 @@ Martin Werner and Hao Li. 2022. AtlasHDF: An Efficient Big Data Framework for Ge
 
 Martin Werner: [martin.werner@tum.de](mailto:martin.werner@tum.de)  
 Technische Universität München, Professur für Big Geospatial Data Management, Lise-Meitner-Str. 9, 85521 Ottobrunn
+
+
+## Appendix: A first glance on triangulated water in Guinea Bissau
+This needs a refinement in terms of queries to find all the water, but for the selective water it found,
+it is quite good.
+
+![](assets/water-example.png)
