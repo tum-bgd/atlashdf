@@ -30,6 +30,16 @@ int main(int argc, char **argv) {
   program.add_argument("-r", "--representation")
       .help("representation (schema) to be used")
       .default_value(std::string("immediate"));
+  program.add_argument("-t", "--triangulation")
+      .help("Triangulation method to be used")
+      .default_value(std::string("earcut"))
+      .action([](const std::string &value) {
+        static const std::vector<std::string> choices = {"earcut", "martin"};
+        if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
+          return value;
+        }
+        return std::string("earcut");
+      });
   program.add_argument("operation").help("<operation>");
   program.add_argument("input").help("<input>");
   program.add_argument("output")
@@ -55,7 +65,8 @@ int main(int argc, char **argv) {
     }
   } else if (operation == "resolve") {
     resolve_osm_geometry(program.get<std::string>("input"),
-                         program.get<std::string>("output"));
+                         program.get<std::string>("output"),
+                         program.get<std::string>("triangulation"));
 
   } else {
     std::cerr << "Your operation is not understood or you did not give "
