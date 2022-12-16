@@ -92,6 +92,11 @@ struct ChunkedOSMImmediateWriter
     };
 
     ~ChunkedOSMImmediateWriter(){
+#ifdef HAVE_JQ
+    	if (jq_nodes != NULL) delete jq_nodes;
+	if (jq_ways != NULL) delete jq_ways;
+        if (jq_rels != NULL) delete jq_rels;
+#endif
 	flush_nodes(); // write all nodes to disk
 	flush_ways();
 	flush_rels();
@@ -106,9 +111,24 @@ struct ChunkedOSMImmediateWriter
 
     void set_jq_nodes(std::string query)
     {
-        std::cout << "Activating a JQrunner with " << query << std::endl;
+	if (jq_nodes != NULL) delete jq_nodes;
+        std::cout << "Activating a JQrunner for nodes with " << query << std::endl;
 	jq_nodes = new JQRunner(query);
     }
+    void set_jq_ways(std::string query)
+    {
+    	if (jq_ways != NULL) delete jq_ways;
+        std::cout << "Activating a JQrunner for ways with " << query << std::endl;
+	jq_ways = new JQRunner(query);
+    }
+    void set_jq_relations(std::string query)
+    {
+    	if (jq_rels != NULL) delete jq_rels;
+        std::cout << "Activating a JQrunner for relations with " << query << std::endl;
+	jq_rels = new JQRunner(query);
+    }
+
+    
     
 #endif
     void node(uint64_t id, std::vector<double> coords, std::string attrib)
@@ -119,14 +139,10 @@ struct ChunkedOSMImmediateWriter
 #ifdef HAVE_JQ
         if (jq_nodes != NULL && attrib != "") // if there are attributes; make osm id mandatory! Then this is not needed
 	{
-	   
-	   attrib  = (*jq_nodes)(attrib);
-	   	   
-	   if (attrib == "") // this enables select(...)
-	   
+	  attrib  = (*jq_nodes)(attrib);
+	  if (attrib == "") // this enables select(...)
 	     return;
-	 }
-	   
+	}   
 #endif
 	node_ids.push_back(id);
 	coord_cache.push_back(coords);
@@ -140,6 +156,15 @@ struct ChunkedOSMImmediateWriter
     {
 	if (way_ids.size() > blocksize)
 	   flush_ways();
+ #ifdef HAVE_JQ
+        if (jq_ways != NULL && attrib != "") // if there are attributes; make osm id mandatory! Then this is not needed
+	{
+	  attrib  = (*jq_ways)(attrib);
+	  if (attrib == "") // this enables select(...)
+	     return;
+	}   
+#endif
+
 	way_ids.push_back(id);
 	way_attribs.push_back(attrib);
 	way_refs.push_back(refs);
@@ -152,6 +177,14 @@ struct ChunkedOSMImmediateWriter
     {
 	if (rel_ids.size() > blocksize)
 	   flush_rels();
+#ifdef HAVE_JQ
+        if (jq_nodes != NULL && attrib != "") // if there are attributes; make osm id mandatory! Then this is not needed
+	{
+	  attrib  = (*jq_rels)(attrib);
+	  if (attrib == "") // this enables select(...)
+	     return;
+	}   
+#endif
 	rel_ids.push_back(id);
 	rel_attribs.push_back(attrib);
 	rel_refs.push_back(refs);
