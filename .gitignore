@@ -1,3 +1,6 @@
+*.h5
+*.csv
+*.osm.pbf
 data
 atlashdf/atlashdf
 .vscode
