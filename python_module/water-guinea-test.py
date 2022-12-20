@@ -19,7 +19,7 @@ import atlashdf;
 
 
 attribute_selection_query="""
-{"iswater":(.waterway != null or .natural == "water" or .water != null or .landuse=="water" or .landcover=="water")} 
+{"iswater":(.waterway != null or .natural == "water" or .natural == "wetland" or .water != null or .landuse=="water" or .landcover=="water")} 
 """
 
 object_filter="""
