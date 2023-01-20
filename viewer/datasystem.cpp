@@ -12,9 +12,15 @@ bool DataSystem::Load(std::string filename)
 {
 	std::cout << "Loading linestrings from " << filename << std::endl;
 	H5Easy::File file(filename, H5Easy::File::ReadOnly);
-	
-        index = H5Easy::load<index_type>(file, "/osm/streets_idx"); // can be linestring_idx or param @TODO
-        coords = H5Easy::load<coord_type>(file, "/osm/linestrings");
+	try{
+        index = H5Easy::load<index_type>(file, "/osm/ways_triangles_idx"); // can be linestring_idx or param @TODO
+        coords = H5Easy::load<coord_type>(file, "/osm/ways_triangles");
+	}catch(...)
+	{
+	    std::cout << "Loading failed. Expected /osm/ways_triangles_idx and /osm/ways_triangles" << std::endl;
+	    clear();
+	    return false;
+	}
 	std::cout << "Found " << index.size() << "linestrings with a total of " << coords.size() << "points" << std::endl;
 	return true;
 }

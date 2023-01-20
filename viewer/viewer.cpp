@@ -83,6 +83,7 @@ class MyDataEngine :public DataEngine
 						return; 
 				   ds.Load(std::string(openH5Dialog.GetPath().mb_str()));
 				   mbr = ds.getMBR();
+				   std::cout << "MBR: " << mbr[0]<<", " <<mbr[1]<<", " <<mbr[2]<<", " <<mbr[3] << std::endl;
 				   zoompan.setMBR(mbr[0],mbr[1],mbr[2],mbr[3]);
 				   zoompan.zoomFit(); 
 				  
@@ -114,14 +115,22 @@ class MyDataEngine :public DataEngine
 			glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT ); 
 
    		glColor3f(0.094,0.44,0.71  );
+
+		// We are now only rendering triangles, hence, we don'T need the index, which
+		// just allows us to map properties to polygons (an index pair represents start and end
+		// of a sequence of triangles that builds a polygon.
+		glBegin(GL_TRIANGLES); // we should use glBindBuffer, but not on DSLAB ;-)
 		
-		for (const auto &line : ds.index)
+		for (auto idx : ds.index)
 		{
-		    glBegin(GL_LINE_STRIP);
-		    for (size_t i=line[0]; i < line[1]; i++)
-		      glVertex2f(ds.coords[i][0],ds.coords[i][1]);
-		   glEnd();
+		    for (int i=idx[0]; i < idx[1]; i++) // maybe <=?
+		    {
+			glVertex2f(ds.coords[i][0],ds.coords[i][1]);
+		    }
 		}
+				
+		glEnd();
+		
 
 	        }
 		
