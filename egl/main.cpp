@@ -1,9 +1,16 @@
+
 #include<iostream>
+#include <GL/glew.h>
 #include <EGL/egl.h>
-#include <GL/glu.h>
-#include <GL/gl.h>
 #include<cstring>
-  static const EGLint configAttribs[] = {
+#include<vector>
+#include "prepare_ogl.h"
+#include "hdf5.h"
+#include "svpng.inc"
+
+
+
+static const EGLint configAttribs[] = {
           EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
           EGL_BLUE_SIZE, 8,
           EGL_GREEN_SIZE, 8,
@@ -13,8 +20,8 @@
           EGL_NONE
   };    
 
-  static const int pbufferWidth = 9;
-  static const int pbufferHeight = 9;
+  static const int pbufferWidth = 1024;
+  static const int pbufferHeight = 768;
 
   static const EGLint pbufferAttribs[] = {
         EGL_WIDTH, pbufferWidth,
@@ -22,8 +29,22 @@
         EGL_NONE,
   };
 
+
+  
+  
+
+
+  
+  
 int main(int argc, char *argv[])
 {
+   std::vector<double> vertex_array;
+   std::vector<uint32_t> index_array;
+   load_opengl(argv[1], vertex_array, index_array);
+    std::cout << "vertices:" << vertex_array.size() << std::endl;
+    std::cout << "indices:" << index_array.size() << std::endl;
+
+
   // 1. Initialize EGL
   EGLDisplay eglDpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
@@ -51,6 +72,28 @@ int main(int argc, char *argv[])
   eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx);
 
   // from now on use your OpenGL context
+    GLenum err = glewInit();
+    if (GLEW_OK != err && err != GLEW_ERROR_NO_GLX_DISPLAY)
+    {
+      /* Problem: glewInit failed, something is seriously wrong. */
+      fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+    }
+   fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+
+ // Transmit Data
+    GLuint points_vbo = 0;
+    glGenBuffers(1, &points_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertex_array.size()* sizeof(double), &vertex_array[0], GL_STATIC_DRAW);
+    glVertexPointer(2, GL_DOUBLE, 0, NULL);
+
+    GLuint index_ibo = 0;
+    glGenBuffers(1, &index_ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_array.size() * sizeof(uint32_t), index_array.data(), GL_STATIC_DRAW);
+
+
+  // Set up view
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f); 
     glDisable(GL_TEXTURE_2D);   // textures
     glEnable(GL_COLOR_MATERIAL);
@@ -62,10 +105,26 @@ int main(int argc, char *argv[])
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
  
-    gluOrtho2D(-2,2,-2,2);//topleft_x, bottomrigth_x, bottomrigth_y, topleft_y);
+//    gluOrtho2D(-2,2,-2,2);//topleft_x, bottomrigth_x, bottomrigth_y, topleft_y);
+    gluOrtho2D(10.7259, 13.0813, 49.0725,47.391);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glClear(GL_COLOR_BUFFER_BIT);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_ibo);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_INDEX_ARRAY);
+    glDrawElements(
+	GL_TRIANGLES,
+	index_array.size(),
+	GL_UNSIGNED_INT,
+	NULL
+    );
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
     glBegin(GL_TRIANGLES);
     glVertex2f(0,0);
     glVertex2f(1,0);
@@ -77,11 +136,10 @@ int main(int argc, char *argv[])
     uint8_t* ImageBuffer = new uint8_t[pbufferWidth*pbufferHeight * 4];
     memset(ImageBuffer, 0, pbufferWidth*pbufferHeight * 4);
     glReadPixels(0, 0, pbufferWidth, pbufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, ImageBuffer);
-    for (size_t i=0; i < pbufferWidth*pbufferHeight * 4; i++)
-      std::cout << (int)ImageBuffer[i] << " ";
-    std::cout << std::endl;
-    
-    
+
+    FILE *f = fopen("out.png","wb");
+    svpng(f, pbufferWidth,pbufferHeight, ImageBuffer, 1);
+    fclose(f);
    
   
 
