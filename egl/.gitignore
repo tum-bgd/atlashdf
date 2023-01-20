@@ -1,3 +1,4 @@
 egl
 out.png
 *.o
+*.png
