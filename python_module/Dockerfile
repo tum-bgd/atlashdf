@@ -1,7 +1,7 @@
 # Take a debian that fits your machine
 # Be prepared to update the installation of protobuflite which contains a version.
 
-FROM debian:9
+FROM debian:10
 
 #
 # This container is for building only. Output wheels are in /atlashdf/dist
@@ -22,8 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Check out upstream
 
 RUN git config --global pull.ff only && \
-    git clone https://github.com/tum-bgd/atlashdf.git && cd atlashdf && \
-    git checkout pythonmodule
+    git clone https://github.com/tum-bgd/atlashdf.git && cd atlashdf 
 
 # Build JQ
 
@@ -41,15 +40,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \       
     libosmpbf-dev \
     libprotobuf-dev \
-    libprotobuf-lite32 \
+    libprotobuf-lite* \
     libhdf5-dev \
     libboost-dev \
+    libffi-dev  \
+    pkg-config \
+    screen \
     && apt-get clean &&  rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pybind11
-
+RUN pip3 install pybind11 && pip3 install wheel 
 WORKDIR /atlashdf/python_module
 RUN python3 setup.py bdist_wheel
+RUN pip3 install jupyter && pip3 install dist/atlashdf-0.1-cp37-cp37m-linux_x86_64.whl && pip3 install h5py
+
+
 
 # Now, the wheel is in /atlashdf/python_module/dist and can be copied by running a container and mounting:
 # in@martin:~/2023work/atlashdf/python_module$ docker run -it -v dist:/out atlashdfbuilder                           
