@@ -7,7 +7,7 @@
 #include "prepare_ogl.h"
 #include "hdf5.h"
 #include "svpng.inc"
-
+#include "tictoc.hpp"
 
 
 static const EGLint configAttribs[] = {
@@ -20,8 +20,8 @@ static const EGLint configAttribs[] = {
           EGL_NONE
   };    
 
-  static const int pbufferWidth = 1024;
-  static const int pbufferHeight = 768;
+  static const int pbufferWidth = 224;
+  static const int pbufferHeight = 224;
 
   static const EGLint pbufferAttribs[] = {
         EGL_WIDTH, pbufferWidth,
@@ -29,12 +29,24 @@ static const EGLint configAttribs[] = {
         EGL_NONE,
   };
 
+#include<random>
+void random_patch()
+{
+   //gluOrtho2D(, );
+   double lower_bound = 0;
+   double upper_bound = 10000;
+   static  std::uniform_real_distribution<double> xd(10.7259, 13.0813);
+   static  std::uniform_real_distribution<double> yd(47.391,49.0725);
+   static std::default_random_engine re;
+   std::vector<double> ortho{xd(re), xd(re), yd(re),yd(re)};
+   gluOrtho2D(std::min(ortho[0],ortho[1]),std::max(ortho[0],ortho[1]),std::max(ortho[2],ortho[3]),std::min(ortho[2],ortho[3]));
+}
+  
+
 
   
-  
 
 
-  
   
 int main(int argc, char *argv[])
 {
@@ -102,41 +114,45 @@ int main(int argc, char *argv[])
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
  
     glViewport(0, 0,pbufferWidth,pbufferHeight);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
- 
-//    gluOrtho2D(-2,2,-2,2);//topleft_x, bottomrigth_x, bottomrigth_y, topleft_y);
-    gluOrtho2D(10.7259, 13.0813, 49.0725,47.391);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glClear(GL_COLOR_BUFFER_BIT);
-
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_ibo);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_INDEX_ARRAY);
-    glDrawElements(
-	GL_TRIANGLES,
-	index_array.size(),
-	GL_UNSIGNED_INT,
-	NULL
-    );
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    
-    glBegin(GL_TRIANGLES);
-    glVertex2f(0,0);
-    glVertex2f(1,0);
-    glVertex2f(0.5,1);
-    glEnd();
+    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_ibo);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);
+    uint8_t* ImageBuffer = new uint8_t[pbufferWidth*pbufferHeight * 4];
+    std::cout << "Running 1000 frames" << std::endl;
+    {tictoc t("1000 frames");
+    for (size_t i=0; i < 1000; i++)
+    {
+	glLoadIdentity();
+	random_patch();
+	//gluOrtho2D(10.7259, 13.0813, 49.0725,47.391);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDrawElements(
+	    GL_TRIANGLES,
+	    index_array.size(),
+	    GL_UNSIGNED_INT,
+	    NULL
+	);
     glFinish();
     eglSwapBuffers( eglDpy, eglSurf);
     // Here we should read back our buffer
-    uint8_t* ImageBuffer = new uint8_t[pbufferWidth*pbufferHeight * 4];
+    
     memset(ImageBuffer, 0, pbufferWidth*pbufferHeight * 4);
     glReadPixels(0, 0, pbufferWidth, pbufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, ImageBuffer);
+    char fname[1024]; snprintf(fname,1024, "out-%04d.png", i);
+    FILE *f = fopen(fname,"wb");
+    svpng(f, pbufferWidth,pbufferHeight, ImageBuffer, 1);
+    fclose(f);
 
+    }
+    } // tictoc
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    
     FILE *f = fopen("out.png","wb");
     svpng(f, pbufferWidth,pbufferHeight, ImageBuffer, 1);
     fclose(f);
