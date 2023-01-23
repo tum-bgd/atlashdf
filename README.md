@@ -2,7 +2,7 @@
 
 AtlasHDF: An Efficient Big Data Framework for GeoAI
 
-![image](https://user-images.githubusercontent.com/33456076/214130427-6e2b1a8a-1d13-4abf-a257-840188ea4a40.png)
+[![DOI](https://zenodo.org/badge/511493796.svg)](https://zenodo.org/badge/latestdoi/511493796)
 
 
 ## Abstract
