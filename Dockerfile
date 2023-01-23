@@ -49,6 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER ${NB_UID}
 
+RUN pip install rasterio && matplotlib
+
 COPY --from=builder /atlashdf/python_module/dist/atlashdf-0.1-cp310-cp310-linux_x86_64.whl ./
 
 RUN pip install atlashdf-0.1-cp310-cp310-linux_x86_64.whl
