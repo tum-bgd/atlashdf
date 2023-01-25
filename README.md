@@ -88,7 +88,9 @@ On boxes, we aim to have an R*-tree embedded into the HDF5 to immediately answer
 
 ## Citation
 
-Martin Werner and Hao Li. 2022. AtlasHDF: An Efficient Big Data Framework for GeoAI. In The 10th ACM SIGSPATIAL International Workshop on Analytics for Big Geospatial Data (BigSpatial ’22) (BigSpatial ’22), November 1, 2022, Seattle, WA, USA. ACM, New York, NY, USA, 7 pages. <https://doi.org/10.1145/3557917.3567615>
+- Martin Werner and Hao Li. 2022. AtlasHDF: An Efficient Big Data Framework for GeoAI. In The 10th ACM SIGSPATIAL International Workshop on Analytics for Big Geospatial Data (BigSpatial ’22) (BigSpatial ’22), November 1, 2022, Seattle, WA, USA. ACM, New York, NY, USA, 7 pages. <https://doi.org/10.1145/3557917.3567615>
+
+- Balthasar Teuscher, Hao Li, Martin Werner, XinWang, & Kerry. (2023). tum-bgd/atlashdf: v1.0.0 (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.7562587
 
 ## Contact
 
