@@ -55,3 +55,4 @@ COPY --from=builder /atlashdf/*.ipynb ./
 
 RUN pip install atlashdf-0.1-cp310-cp310-linux_x86_64.whl
 RUN pip install rasterio
+RUN pip install torchgeo
