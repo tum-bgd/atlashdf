@@ -8,14 +8,26 @@ FROM python:3.10.9-bullseye AS builder
 # You can mount it or run the container and inspect what you have.
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    sqlite3 \
+    libclang-dev \
     libosmpbf-dev \
     libhdf5-dev \
     libboost-dev \
     && apt-get clean &&  rm -rf /var/lib/apt/lists/*
 
+# Install Rust
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+
 WORKDIR /atlashdf
 
 COPY ./ .
+
+# Build atlashdf-rs wheel
+RUN pip3 install maturin[patchelf]
+RUN maturin build --release -m atlashdf-rs/Cargo.toml
 
 # Build JQ
 WORKDIR /atlashdf/python_module/jq
@@ -50,9 +62,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 USER ${NB_UID}
 
 COPY --from=builder /atlashdf/python_module/dist/* ./
+COPY --from=builder /atlashdf/target/wheels/* ./
 COPY --from=builder /atlashdf/assets/* assets/
 COPY --from=builder /atlashdf/*.ipynb ./
 
 RUN pip install atlashdf-0.1-cp310-cp310-linux_x86_64.whl
+RUN pip install atlashdf_rs-0.1.0-cp310-cp310-manylinux_2_31_x86_64.whl
 RUN pip install rasterio
 RUN pip install torchgeo
