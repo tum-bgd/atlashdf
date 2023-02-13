@@ -3,6 +3,12 @@ use std::{fs::File, io::BufReader};
 use georaster::geotiff::GeoTiffReader;
 use pyo3::prelude::*;
 
+/// Proj info
+#[pyfunction]
+fn proj_info() -> PyResult<String> {
+    Ok(format!("{:#?}", proj::ProjBuilder::default().lib_info().unwrap()))
+}
+
 /// Get mask
 #[pyfunction]
 fn get_mask(py: Python, h5file: String, tiff: String) -> PyResult<&numpy::PyArray2<bool>> {
@@ -48,6 +54,7 @@ fn get_mask(py: Python, h5file: String, tiff: String) -> PyResult<&numpy::PyArra
 /// AtlasHDF Python module implemented in Rust.
 #[pymodule]
 fn atlashdf_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(proj_info, m)?)?;
     m.add_function(wrap_pyfunction!(get_mask, m)?)?;
     Ok(())
 }
