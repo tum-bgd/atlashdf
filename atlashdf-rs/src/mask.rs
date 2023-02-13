@@ -1,5 +1,4 @@
 use euc::{rasterizer, DepthStrategy, Pipeline, Target};
-use image::ImageResult;
 use ndarray::Array2;
 
 struct Triangle;
@@ -61,17 +60,17 @@ impl Mask {
         mask
     }
 
-    /// save mask to image
-    pub fn save(&self, path: &str) -> ImageResult<()> {
-        let imgbuf: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> =
-            image::ImageBuffer::from_fn(self.0.ncols() as u32, self.0.nrows() as u32, |x, y| {
-                let v = self.0.get([x as usize, y as usize]).unwrap();
-                if *v {
-                    image::Rgb([0, 0, 255])
-                } else {
-                    image::Rgb([0, 0, 0])
-                }
-            });
-        imgbuf.save(path)
-    }
+    // /// save mask to image
+    // pub fn save(&self, path: &str) -> image::ImageResult<()> {
+    //     let imgbuf: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> =
+    //         image::ImageBuffer::from_fn(self.0.ncols() as u32, self.0.nrows() as u32, |x, y| {
+    //             let v = self.0.get([x as usize, y as usize]).unwrap();
+    //             if *v {
+    //                 image::Rgb([0, 0, 255])
+    //             } else {
+    //                 image::Rgb([0, 0, 0])
+    //             }
+    //         });
+    //     imgbuf.save(path)
+    // }
 }
