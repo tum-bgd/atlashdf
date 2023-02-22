@@ -10,17 +10,21 @@ pub fn get_mask(
     crs: &str,
 ) -> ndarray::Array2<bool> {
     assert_eq!(bbox.len(), 4);
+
     // read data
-    let (file, ds) = collections[0].split_once(".h5/").unwrap();
-    let file = hdf5::File::open(format!("{file}.h5")).unwrap(); // open for reading
-    let ds = file.dataset(ds).unwrap(); // open the dataset
-    let data = ds.read_2d::<f64>().unwrap();
+    let mut data = ndarray::Array2::default((0, 2));
+    for collection in collections {
+        let (file, ds) = collection.split_once(".h5/").unwrap();
+        let file = hdf5::File::open(format!("{file}.h5")).unwrap();
+        let ds = file.dataset(ds).unwrap();
+        data.append(ndarray::Axis(0), ds.read_2d::<f64>().unwrap().view())
+            .unwrap();
+    }
 
     // reproject bbox
     let pj = proj::Proj::new_known_crs(bbox_crs, crs, None).unwrap();
     let bbox_min = pj.convert((bbox[0], bbox[1])).unwrap();
     let bbox_max = pj.convert((bbox[2], bbox[3])).unwrap();
-    dbg!((bbox_min, bbox_max));
 
     // reproject triangles to map CRS
     let from = "EPSG:4326"; // osm

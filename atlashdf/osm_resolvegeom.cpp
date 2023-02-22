@@ -1,11 +1,11 @@
+#include <picojson.h>
+
 #include <algorithm>
+#include <highfive/H5Easy.hpp>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
-
-#include <highfive/H5Easy.hpp>
-#include <picojson.h>
 
 #include "osm_filter.hpp"
 #include "polygonize.hpp"
@@ -15,18 +15,10 @@
 #include <jqrunner.hpp>
 #endif
 
-// todo: replace with boost geometry adn then also the distance computations
+// todo: replace with boost geometry
 using Point = std::vector<double>;
 using Linestring = std::vector<Point>;
 using Polygon = std::vector<Linestring>;
-
-double dist(const Point &a, const Point &b)
-{
-    // this is only for 2D points, and it is ugly. Use boost geometry instead
-    return sqrt( (b[0]-a[0])*(b[0]-a[0])+(b[1]-a[1])*(b[1]-a[1]));
-}
-
-
 
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
@@ -45,9 +37,8 @@ public:
   std::vector<std::vector<uint32_t>> icache;
 
   void flush() {
-  
     // Flush data
-    if (ccache.size() != 0){
+    if (ccache.size() != 0) {
       auto size = data.getDimensions();
       auto start = size[0];
       size[0] += ccache.size();
@@ -55,8 +46,7 @@ public:
       data.select({start, 0}, {ccache.size(), DIM}).write(ccache);
       ccache.clear();
     }
-    if (icache.size() != 0)
-    {
+    if (icache.size() != 0) {
       auto size = index.getDimensions();
       auto start = size[0];
       size[0] += icache.size();
@@ -78,12 +68,16 @@ public:
   }
 };
 
-void _resolve_osm_ways(std::string inputfile, std::string method, std::string query=".") {
+void _resolve_osm_ways(std::string inputfile, std::string method,
+                       std::string query = ".") {
   std::cout << "Resolving ways..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
-  #ifdef HAVE_JQ
+
+#ifdef HAVE_JQ
+  std::cout << "Activating a JQrunner for ways triangulation with " << query
+            << std::endl;
   JQRunner jq(query);
-  #endif
+#endif
 
   // load node indices
   auto nodes = H5Easy::load<std::vector<uint64_t>>(file, "/osm/nodes");
@@ -145,13 +139,10 @@ void _resolve_osm_ways(std::string inputfile, std::string method, std::string qu
       elems.push_back(std::stoull(item));
     }
 
-
- // check the linestring is closed (not, for example, a river)
-    // dist (linestring.front(), linestring.back())<1e-6
-    if(elems.front() != elems.back())
-    {
-	continue; // this is not a closed ring, hence, never an area
-    }
+    // check the linestring is closed (not, for example, a river)
+    // if (elems.front() != elems.back()) {
+    //   continue;  // this is not a closed ring, hence, never an area
+    // }
 
     // assemble coordinates
     Linestring linestring;
@@ -161,18 +152,16 @@ void _resolve_osm_ways(std::string inputfile, std::string method, std::string qu
       nodes_coords.select({row, 0}, {1, 2}).read(pointdata);
       linestring.push_back({pointdata[0], pointdata[1]});
     }
-    
-   
+
     // fetch way tags
     std::vector<std::string> attr;
     ways_attr.select({i, 0}, {1, 1}).read(attr);
-    //MARK: Here we could filter withcontinue?
-#ifdef HAVE_JQ
-    if (jq(attr[0]) == "")
-    {
-	continue;
-    }
-#endif
+    // MARK: Here we could filter withcontinue?
+    // #ifdef HAVE_JQ
+    //     if (jq(attr[0]) == "") {
+    //       continue;
+    //     }
+    // #endif
 
     // deserialize tags
     picojson::value v;
@@ -183,19 +172,23 @@ void _resolve_osm_ways(std::string inputfile, std::string method, std::string qu
 
     // assemble triangles as a contiguous set of coordinates (linestring)
     std::vector<Point> triangles;
-    // this is an incompatible choice as filtering tags can destroy these assumptions
-    // for the future, I aim for having selection of triangulation done in python
-    // based on a JQ query and not here. Hence, a hack that brings this behavior to
-    // python, but keeps your idea for atlashdf binary for the moment
-    #ifndef HAVE_JQ
+// this is an incompatible choice as filtering tags can destroy these
+// assumptions for the future, I aim for having selection of triangulation done
+// in python based on a JQ query and not here. Hence, a hack that brings this
+// behavior to python, but keeps your idea for atlashdf binary for the moment
+#ifdef HAVE_JQ
+    // std::cout << "JQ: " << jq(attr[0]) << std::endl;
+    if (osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT) &&
+        attr[0] != "" && jq(attr[0]) != "")
+#else
     if (osm::matches(v, osm::AREA_KEYS, osm::AREA_TAGS, osm::AREA_TAGS_NOT))
-    #endif
+#endif
     {
       // triangulate
       if (method == "earcut") {
         triangles = triangulation::earcut({linestring});
-      } else if (method == "martin") {
-        triangles = triangulation::martin({linestring});
+      } else if (method == "boost") {
+        triangles = triangulation::boost({linestring});
       }
     }
     // load triangles
@@ -205,7 +198,7 @@ void _resolve_osm_ways(std::string inputfile, std::string method, std::string qu
     emit_linestring(linestring);
 
 #ifdef DEBUG_TRUNCATE
-    // Debug TRuncate will run this operation, but only to 1% of the input
+    // Debug Truncate will run this operation, but only to 1% of the input
     if ((double)i / (double)n_ways > 0.01)
       break;
 #endif
@@ -215,9 +208,16 @@ void _resolve_osm_ways(std::string inputfile, std::string method, std::string qu
   }
 }
 
-void _resolve_osm_relations(std::string inputfile, std::string method) {
+void _resolve_osm_relations(std::string inputfile, std::string method,
+                            std::string query = ".") {
   std::cout << "Resolving relations..." << std::endl;
   H5Easy::File file(inputfile, H5Easy::File::ReadWrite);
+
+#ifdef HAVE_JQ
+  std::cout << "Activating a JQrunner for relations triangulation with "
+            << query << std::endl;
+  JQRunner jq(query);
+#endif
 
   // load linestring indices
   auto ways = H5Easy::load<std::vector<uint64_t>>(file, "/osm/ways");
@@ -268,6 +268,12 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
     std::vector<std::string> attr;
     relations_attr.select({i, 0}, {1, 1}).read(attr);
 
+#ifdef HAVE_JQ
+    if (attr[0] == "" || jq(attr[0]) == "") {
+      emit_triangles({});
+      continue;
+    }
+#else
     // deserialize tags
     picojson::value tags;
     auto err = picojson::parse(tags, attr[0]);
@@ -279,13 +285,14 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
       emit_triangles({});
       continue;
     }
+#endif
 
     // fetch refs (members)
     std::vector<std::string> refs;
     relations_refs.select({i, 0}, {1, 1}).read(refs);
 
     picojson::value members;
-    err = picojson::parse(members, refs[0]);
+    auto err = picojson::parse(members, refs[0]);
     if (!err.empty())
       std::cerr << err << std::endl;
 
@@ -324,8 +331,8 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
         for (const auto &t : triangulation::earcut(p))
           triangles.push_back(t);
 
-      } else if (method == "martin") {
-        for (const auto &t : triangulation::martin(p))
+      } else if (method == "boost") {
+        for (const auto &t : triangulation::boost(p))
           triangles.push_back(t);
       }
     }
@@ -334,7 +341,7 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
     emit_triangles(triangles);
 
 #ifdef DEBUG_TRUNCATE
-    // Debug TRuncate will run this operation, but only to 1% of the input
+    // Debug Tuncate will run this operation, but only to 1% of the input
     if ((double)i / (double)n_ways > 0.01)
       break;
 #endif
@@ -345,9 +352,10 @@ void _resolve_osm_relations(std::string inputfile, std::string method) {
 }
 
 bool resolve_osm_geometry(std::string inputfile, std::string output,
-                          std::string method,std::string nodes_query,std::string ways_query,std::string relations_query) {
+                          std::string method, std::string nodes_query,
+                          std::string ways_query, std::string relations_query) {
   std::cout << "Resolving geometries using " << method << std::endl;
   _resolve_osm_ways(inputfile, method, ways_query);
-  _resolve_osm_relations(inputfile, method);
+  _resolve_osm_relations(inputfile, method, relations_query);
   return true;
 }

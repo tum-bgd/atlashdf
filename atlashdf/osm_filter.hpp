@@ -1,8 +1,8 @@
+#include <picojson.h>
+
 #include <map>
 #include <string>
 #include <vector>
-
-#include <picojson.h>
 
 namespace osm {
 using key_values_map = std::map<std::string, std::vector<std::string>>;
@@ -45,4 +45,4 @@ const bool matches(picojson::value &tags, std::vector<std::string> keys,
                      });
 }
 
-} // namespace osm
+}  // namespace osm

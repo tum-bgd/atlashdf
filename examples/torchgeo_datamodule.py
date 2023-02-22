@@ -38,7 +38,7 @@ class Sentinel2(RasterDataset):
 
 
 class WaterMask(RasterDataset):
-    filename_glob = "mask.tif"
+    filename_glob = "*mask.tif"
     is_image = False
     separate_files = False
 
@@ -53,11 +53,9 @@ class WaterMask(RasterDataset):
 
 
 class CustomGeoDataset(IntersectionDataset):
-    def __init__(self, split = "train", download = False, **kwargs):
-        self.sentinel = Sentinel2(
-            "/home/balthasar/git/atlashdf/data/Sentinel-2", **kwargs
-        )
-        self.mask = WaterMask("/home/balthasar/git/atlashdf/data", **kwargs)
+    def __init__(self, split="train", download=False, **kwargs):
+        self.sentinel = Sentinel2("../data/Sentinel-2", **kwargs)
+        self.mask = WaterMask("../data", **kwargs)
 
         super().__init__(dataset1=self.sentinel, dataset2=self.mask)
 
@@ -87,24 +85,25 @@ class CustomGeoDataset(IntersectionDataset):
         return fig
 
 
-# torch.manual_seed(1)
+# torch.manual_seed(1)  # FIXME: errors in notebook
 
 # plot some image and mask
-# dataset = CustomGeoDataset()
-# sampler = RandomGeoSampler(dataset, size=256, length=1)
-# dataloader = DataLoader(dataset, sampler=sampler, collate_fn=stack_samples)
+dataset = CustomGeoDataset()
+sampler = RandomGeoSampler(dataset, size=256, length=1)
+dataloader = DataLoader(dataset, sampler=sampler, collate_fn=stack_samples)
 
-# for batch in dataloader:
-#     sample = unbind_samples(batch)[0]
-#     dataset.plot(sample)
-#     plt.show()
+for batch in dataloader:
+    sample = unbind_samples(batch)[0]
+    dataset.plot(sample)
+    plt.show()
+
 
 # stup datamodule
 datamodule = GeoDataModule(
     dataset_class=CustomGeoDataset,
-    batch_size=32,
+    batch_size=16,
     patch_size=64,
-    length=50 * 32,
+    length=50 * 16,
     num_workers=6,
 )
 
@@ -128,4 +127,4 @@ trainer = Trainer(
     max_epochs=10,
     default_root_dir="../data",
 )
-trainer.fit(model=task, datamodule=datamodule)
+trainer.fit(model=task, datamodule=datamodule)  # FIXME: cuda is not happy in notebook

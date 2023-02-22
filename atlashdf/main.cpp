@@ -1,32 +1,33 @@
 /*
-helena command line tool for AtlasHDF in the Helena Spatial Big Data Framework
+Command line tool for AtlasHDF in the Helena Spatial Big Data Framework
 development version / preview
 martin.werner@tum.de
 License: MIT
 
 */
 
-#include <iostream>
-
 #include <argparse.hpp>
+#include <iostream>
 
 #include "osm_immediate.h"
 #include "osm_resolvegeom.h"
 
 int main(int argc, char **argv) {
   // parse command line arguments
-  argparse::ArgumentParser program("helena");
+  argparse::ArgumentParser program("atlashdf");
   program.add_argument("-c", "--chunksize")
       .scan<'d', int>()
       .default_value(1024)
       .help("The size of chunks in all dataspaces");
-  //   program.add_argument("-f", "--filter")
-  //       .default_value(std::string(""))
-  //       .help("specify filter string");
-  //   program.add_argument("-w", "--add-ways")
-  //       .help("add way nodes")
-  //       .default_value(false)
-  //       .implicit_value(true);
+  program.add_argument("-n", "--nodes_query")
+      .default_value(std::string("."))
+      .help("specify nodes attribute jq filter");
+  program.add_argument("-w", "--ways_query")
+      .default_value(std::string("."))
+      .help("specify ways attribute jq filter");
+  program.add_argument("-r", "--relations_query")
+      .default_value(std::string("."))
+      .help("specify relations attribute jq filter");
   program.add_argument("-r", "--representation")
       .help("representation (schema) to be used")
       .default_value(std::string("immediate"));
@@ -34,7 +35,7 @@ int main(int argc, char **argv) {
       .help("Triangulation method to be used")
       .default_value(std::string("earcut"))
       .action([](const std::string &value) {
-        static const std::vector<std::string> choices = {"earcut", "martin"};
+        static const std::vector<std::string> choices = {"earcut", "boost"};
         if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
           return value;
         }
@@ -61,12 +62,18 @@ int main(int argc, char **argv) {
     if (representation == "immediate") {
       import_osm_immediate(program.get<std::string>("input"),
                            program.get<std::string>("output"),
-                           program.get<int>("chunksize"));
+                           program.get<int>("chunksize"),
+                           program.get<std::string>("nodes_query"),
+                           program.get<std::string>("ways_query"),
+                           program.get<std::string>("relations_query"));
     }
   } else if (operation == "resolve") {
     resolve_osm_geometry(program.get<std::string>("input"),
                          program.get<std::string>("output"),
-                         program.get<std::string>("triangulation"));
+                         program.get<std::string>("triangulation"),
+                         program.get<std::string>("nodes_query"),
+                         program.get<std::string>("ways_query"),
+                         program.get<std::string>("relations_query"));
 
   } else {
     std::cerr << "Your operation is not understood or you did not give "
