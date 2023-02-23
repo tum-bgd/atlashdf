@@ -1,12 +1,8 @@
-import atlashdf
-import atlashdf_rs
-import rasterio
-from PIL import Image
-
-
 # -------------------------------------------------------------------------- #
 # generate water container
 # -------------------------------------------------------------------------- #
+import atlashdf
+
 pbf_file = "../data/oberbayern-latest.osm.pbf"
 h5_file = "../data/oberbayern-water.h5"
 
@@ -29,23 +25,33 @@ x = (
 # -------------------------------------------------------------------------- #
 # generate water mask
 # -------------------------------------------------------------------------- #
-sentinel_file = "../data/Sentinel-2/Oberbayer_10m_3035_4bands.tif"
+import atlashdf_rs
+import rasterio
+from PIL import Image
+
+h5_file = "../data/oberbayern-water.h5"
+sentinel_file = "../data/Sentinel-2/Oberbayer_10m_3035_10bands.tif"
 mask_file = "../data/oberbayern-water-mask.tif"
+
+# FIXME: set right projection (EPSG:3035)
+from osgeo import gdal
+import pyproj
+
+ds = gdal.Open(sentinel_file, gdal.GA_Update)
+ds.SetProjection(pyproj.CRS.from_epsg(3035).to_wkt())
+ds = None
 
 # read metadata
 src = rasterio.open(sentinel_file)
-
-bbox = list(src.bounds)
-crs = "EPSG:3035"
 
 # render mask
 mask = atlashdf_rs.get_mask(
     width=src.width,
     height=src.height,
-    bbox=bbox,
-    bbox_crs=crs,
+    bbox=list(src.bounds),
+    bbox_crs=src.crs.to_string(),
     collections=[f"{h5_file}/osm/ways_triangles", f"{h5_file}/osm/relations_triangles"],
-    crs=crs,
+    crs=src.crs.to_string(),
 )
 Image.fromarray(mask)
 
