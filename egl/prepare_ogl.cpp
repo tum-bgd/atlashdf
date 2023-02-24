@@ -1,68 +1,107 @@
-#include<iostream>
-#include<vector>
-#include<highfive/H5Easy.hpp>
+#include <highfive/H5Easy.hpp>
+#include <iostream>
+#include <proj.h>
+#include <vector>
 
-
-typedef std::vector<std::vector<uint32_t>> index_type;
 typedef std::vector<std::vector<double>> coord_type;
-    
-index_type indices;
+
 coord_type coords;
+
+PJ_CONTEXT *C;
+PJ *P;
+PJ *norm;
+PJ_COORD a, b;
 
 #define EPS 0.000001
 
-bool near(double x, double y, double u, double v)
-{
-   return fabs((x-u)*(x-u)+(y-v)*(y-v)) < EPS;
+bool near(double x, double y, double u, double v) {
+  return fabs((x - u) * (x - u) + (y - v) * (y - v)) < EPS;
 }
 
-size_t find_or_add(double x, double y, std::vector<double> &va)
-{
-    for (size_t i=0; i<  va.size(); i++)
-    {
-	if(near(va[i],va[i+1],x,y))
-	   return i/2;
-        i++; // skip over y
+size_t find_or_add(double x, double y, std::vector<double> &vertex_array) {
+  for (size_t i = 0; i < vertex_array.size(); i++) {
+    if (near(x, y, vertex_array[i], vertex_array[i + 1])) {
+      return i / 2;
     }
-    // not found, add
-    va.push_back(x);
-    va.push_back(y);
-    return (va.size() / 2)-1;
+    i++; // skip over y
+  }
+  // not found, add
+  vertex_array.push_back(x);
+  vertex_array.push_back(y);
+  return (vertex_array.size() / 2) - 1;
 }
 
+void transform(std::vector<std::vector<double>> &coords,
+               std::string from_crs = "EPSG:4326",
+               std::string to_crs = "EPSG:3857") {
+  C = proj_context_create();
+  P = proj_create_crs_to_crs(C, from_crs.c_str(), to_crs.c_str(), NULL);
 
+  if (0 == P) {
+    std::cout << "Failed to create transformation object." << std::endl;
+    return;
+  }
 
+  /* This will ensure that the order of coordinates for the input CRS */
+  /* will be longitude, latitude, whereas EPSG:4326 mandates latitude, */
+  /* longitude */
+  norm = proj_normalize_for_visualization(C, P);
+  if (0 == norm) {
+    std::cout << "Failed to normalize transformation object." << std::endl;
+    return;
+  }
+  proj_destroy(P);
+  P = norm;
 
-void load_opengl(std::string filename, std::vector<double> &vertex_array, std::vector<uint32_t> &index_array)
-{
-  // This tool prepares vertex array and index array for the tile renderer
+  for (auto &coord : coords) {
+    a = proj_coord(coord[0], coord[1], 0, 0);
+    b = proj_trans(P, PJ_FWD, a);
+    coord[0] = b.enu.e;
+    coord[1] = b.enu.n;
+  }
+
+  proj_destroy(P);
+  proj_context_destroy(C); /* may be omitted in the single threaded case */
+}
+
+// This function prepares vertex array and index array for the tile renderer
+void load_opengl(std::vector<std::string> &collections,
+                 std::vector<double> &vertex_array,
+                 std::vector<uint32_t> &index_array, std::string &to_crs) {
+  for (auto collection : collections) {
+    auto position = collection.find(".h5/") + 3;
+
+    std::string filename = collection.substr(0, position);
+    std::string coords_ds = collection.substr(position);
+
     H5Easy::File file(filename, H5Easy::File::ReadOnly);
-	try{
-        indices = H5Easy::load<index_type>(file, "/osm/ways_triangles_idx"); // can be linestring_idx or param @TODO
-        coords = H5Easy::load<coord_type>(file, "/osm/ways_triangles");
-	}catch(...)
-	{
-	    std::cout << "Loading failed. Expected /osm/ways_triangles_idx and /osm/ways_triangles" << std::endl;
-	    
-	    return;
-	}
+    try {
+      auto new_coords = H5Easy::load<coord_type>(file, coords_ds);
+      coords.insert(coords.end(), new_coords.begin(), new_coords.end());
+    } catch (...) {
+      std::cout << "Loading failed. Expected " << coords_ds << " in "
+                << filename << std::endl;
+      return;
+    }
+  }
 
-	std::cout << "Found " << indices.size() << "triangles from ways" <<std::endl;
+  std::cout << "Found " << coords.size() / 3 << " triangles" << std::endl;
 
+  // Transformation
+  std::cout << "Reprojecting ..." << std::endl;
 
-	
-    // Optimizing
-    for (auto idx : indices)
-     {
-	for (auto i=idx[0]; i < idx[1]; i++) // maybe <=?
-	{
-	    index_array.push_back(
-		(uint32_t)find_or_add(coords[i][0],coords[i][1], vertex_array)
-	    );
-	}
-     }
-     std::cout << "Compressed Vertices" << vertex_array.size() << std::endl;
-     std::cout << "Compressed Indices" << index_array.size() << std::endl;
-	
- }
+  transform(coords, to_crs = to_crs);
 
+  // Optimizing (slow)
+  std::cout << "Optimizing ..." << std::endl;
+
+  vertex_array.clear();
+  index_array.clear();
+
+  for (auto coord : coords) {
+    index_array.push_back(
+        (uint32_t)find_or_add(coord[0], coord[1], vertex_array));
+  }
+  std::cout << "Compressed Vertices " << vertex_array.size() << std::endl;
+  std::cout << "Compressed Indices " << index_array.size() << std::endl;
+}
