@@ -276,9 +276,9 @@ void _resolve_osm_relations(std::string inputfile, std::string method,
 #else
     // deserialize tags
     picojson::value tags;
-    auto err = picojson::parse(tags, attr[0]);
-    if (!err.empty())
-      std::cerr << err << std::endl;
+    auto tags_err = picojson::parse(tags, attr[0]);
+    if (!tags_err.empty())
+      std::cerr << tags_err << std::endl;
 
     // process only type=multipolygon
     if (!tags.contains("type") || tags.get("type").to_str() != "multipolygon") {
@@ -292,9 +292,9 @@ void _resolve_osm_relations(std::string inputfile, std::string method,
     relations_refs.select({i, 0}, {1, 1}).read(refs);
 
     picojson::value members;
-    auto err = picojson::parse(members, refs[0]);
-    if (!err.empty())
-      std::cerr << err << std::endl;
+    auto members_err = picojson::parse(members, refs[0]);
+    if (!members_err.empty())
+      std::cerr << members_err << std::endl;
 
     // fetch linestrings
     std::vector<linestring> outers;

@@ -5,18 +5,17 @@ CXXFLAGS = `pkg-config --cflags hdf5` -I ../include -O3 -std=c++17 -Wall #-Wextr
 
 LDFLAGS = -lprotobuf-lite -losmpbf -lz `pkg-config --libs hdf5`
 
-all: build
+all: clean setup build
 
 setup:
 	sudo apt-get update
 	sudo apt-get install pkg-config libhdf5-dev libboost-dev libosmpbf-dev -y
 
-
 build: main.cpp osm_immediate.cpp osm_resolvegeom.cpp 
 	$(CXX) $(CXXFLAGS) -o atlashdf main.cpp osm_immediate.cpp osm_resolvegeom.cpp $(LDFLAGS)
 
 clean:
-	rm -f *.o core atlashdf ../data/*
+	rm -f *.o atlashdf
 
 test: build
 	curl -C - -o "../data/berlin-latest.osm.pbf" --create-dirs "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf"
