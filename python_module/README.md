@@ -6,14 +6,16 @@ AtlasHDF gets a nice python module. But for now, it must be a slightly ugly one.
 
 At the moment, the module implements three functions as a PoC
 
-```
+```python
     .def("import_immediate", &AtlasHDF::import)
     .def("set_nodes_filter", &AtlasHDF::set_nodes_filter)
     .def("set_container", &AtlasHDF::set_container)
 ```
+
 All of them support method chaining such that the following snippet works
-```
-x = atlashdf.AtlasHDF();
+
+```python
+x = atlashdf.AtlasHDF()
 x.set_container("berlin.h5").set_nodes_filter("select(.ele!=null) | .").import_immediate("berlin-latest.osm.pbf")
 ```
 
@@ -21,11 +23,13 @@ Similarly, you can filter just some content to suppress unneeded attributes. For
 would suppress all attributes except elevation, but elevation would even have a good structure in the sense that the key will exist in all nodes (which was not true before), but can have a null value for those that did not have
 the elevation key in the input:
 
-```
+```python
 set_nodes_filter("{\"ele\":.ele}")
 ```
+
 Without this filter, the file `berlin.h5` starts like this:
-```
+
+```python
 >>> h5py.File("berlin.h5")["osm"]["nodes_attr"][:10]
 array([[b'{"ele":"39.1"}'],
        [b'{}'],
@@ -42,7 +46,8 @@ array([[b'{"ele":"39.1"}'],
 ```
 
 But with this filter, it has the following structure:
-```
+
+```python
 >>> import h5py
 >>> h5py.File("berlin.h5")["osm"]["nodes_attr"][:10]
 array([[b'{"ele":"39.1"}'],
@@ -57,8 +62,6 @@ array([[b'{"ele":"39.1"}'],
        [b'{"ele":null}']], dtype=object)
 >>> 
 ```
-
-
 
 ## Usage and Roadmap
 
@@ -78,7 +81,6 @@ JQ is a beast, but the best beast I know. See [https://stedolan.github.io/jq/man
 
 We will have to extend this to ways and relations, but this is easy, I will do so soon.
 
-
 ## Development Decision
 
 While jq and oniguruma should be embedded (to compile on Windows later), I decided not to make them submodules at the
@@ -86,17 +88,19 @@ moment as I had to even change the Makefile.am to compile them. I hope that this
 but it might not be so easy. Hence, we will (at least for Windows) have to cross-compile or compile independently.
 
 jq and onig are the upstreams with just adding -fPIC to AM_LDFLAGS, AM_CFLAGS and AM_CPPFLAGS followed by an
-```
+
+```bash
 autoreconf -vfi
 ./configure
 make
 ```
+
 This generates libraries that are explicitly added in `setup.py`.
 
 If you have problem with non-relocatable code, triple-check your settings. And don't rebuild the lexer of JQ, especially not on Mac (they have an old bison).
 
-
 ## Requirements
+
 - Install dependencies from Debian using apt
 
 This depends on
