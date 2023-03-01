@@ -90,7 +90,7 @@ void load_opengl(std::vector<std::string> &collections,
   // Transformation
   std::cout << "Reprojecting ..." << std::endl;
 
-  transform(coords, to_crs = to_crs);
+  transform(coords, "EPSG:4326", to_crs);
 
   // Optimizing (slow)
   std::cout << "Optimizing ..." << std::endl;
