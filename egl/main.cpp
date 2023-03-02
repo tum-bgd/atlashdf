@@ -39,15 +39,16 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < 1000; i++) {
       random_bbox(bbox);
 
-      uint8_t * ImageBuffer = get_mask(width, height, bbox, crs, collections, crs);
+      std::vector<uint8_t> image =
+          get_mask(width, height, bbox, crs, collections, crs);
 
       char fname[1024];
       snprintf(fname, 1024, "out/%04ld.png", i);
       FILE *f = fopen(fname, "wb");
-      svpng(f, width, height, ImageBuffer, 1);
+      svpng(f, width, height, image.data(), 1);
       fclose(f);
     }
-  }  // tictoc
+  } // tictoc
 
   return 0;
 }

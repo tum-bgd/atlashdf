@@ -1,10 +1,10 @@
+#include <EGL/egl.h>
+#include <GL/glew.h>
+
 #include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
-
-#include <EGL/egl.h>
-#include <GL/glew.h>
 
 #include "prepare_ogl.h"
 
@@ -21,7 +21,7 @@ static const EGLint configAttribs[] = {
 // clang-format on
 
 class MaskRenderer {
-public:
+ public:
   std::vector<double> vertex_array;
   std::vector<uint32_t> index_array;
 
@@ -34,7 +34,7 @@ public:
             this->collections == collections && this->crs == crs);
   };
 
-  uint8_t *render(double bbox[4]);
+  std::vector<uint8_t> render(double bbox[4]);
 
   MaskRenderer();
   ~MaskRenderer() {
@@ -42,7 +42,7 @@ public:
     eglTerminate(display);
   };
 
-private:
+ private:
   int width;
   int height;
   std::vector<std::string> collections;
@@ -57,7 +57,7 @@ private:
   GLuint points_vbo = 0;
   GLuint index_ibo = 0;
 
-  uint8_t *ImageBuffer;
+  std::vector<uint8_t> image;
 };
 
 MaskRenderer::MaskRenderer() {}
@@ -70,8 +70,7 @@ void MaskRenderer::initialize(int width, int height,
   this->collections = collections;
   this->crs = crs;
 
-  delete[] ImageBuffer;
-  ImageBuffer = new uint8_t[width * height * 4];
+  image.resize(width * height * 4);
 
   // 0. Prepare vertices
   load_opengl(collections, vertex_array, index_array, crs);
@@ -121,7 +120,7 @@ void MaskRenderer::initialize(int width, int height,
 
   // Set up view
   glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-  glDisable(GL_TEXTURE_2D); // textures
+  glDisable(GL_TEXTURE_2D);  // textures
   glEnable(GL_COLOR_MATERIAL);
   glEnable(GL_BLEND);
   glDisable(GL_DEPTH_TEST);
@@ -138,7 +137,7 @@ void MaskRenderer::initialize(int width, int height,
   glMatrixMode(GL_PROJECTION);
 }
 
-uint8_t *MaskRenderer::render(double bbox[4]) {
+std::vector<uint8_t> MaskRenderer::render(double bbox[4]) {
   glLoadIdentity();
   gluOrtho2D(bbox[0], bbox[2], bbox[1], bbox[3]);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -146,16 +145,18 @@ uint8_t *MaskRenderer::render(double bbox[4]) {
   glFinish();
   eglSwapBuffers(display, eglSurf);
   // Here we should read back our buffer
-  memset(ImageBuffer, 0, width * height * 4);
-  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, ImageBuffer);
+  memset(image.data(), 0, width * height * 4);
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
 
-  return ImageBuffer;
+  return image;
 }
 
 static MaskRenderer mr;
 
-uint8_t *get_mask(int width, int height, double bbox[4], std::string bbox_crs,
-                  std::vector<std::string> collections, std::string crs) {
+std::vector<uint8_t> get_mask(int width, int height, double bbox[4],
+                              std::string bbox_crs,
+                              std::vector<std::string> collections,
+                              std::string crs) {
   if (!mr.is_initialized(width, height, collections, crs)) {
     std::cout << "Initialize renderer" << std::endl;
     mr.initialize(width, height, collections, crs);
