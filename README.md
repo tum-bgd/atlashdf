@@ -92,7 +92,12 @@ On boxes, we aim to have an R*-tree embedded into the HDF5 to immediately answer
 
 - Balthasar Teuscher, Hao Li, Xin Wang, Zhouyi Xiong & Martin Werner. (2023). tum-bgd/atlashdf: v1.0.0 (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.7562587
 
-## Contact
+## Acknowledgement
+This work has been funded by the German Research Foundation (NFDI4Earth,
+DFG project no. 460036893, https://www.nfdi4earth.de/).
+
+  
+  ## Contact
 
 Martin Werner: [martin.werner@tum.de](mailto:martin.werner@tum.de)  
 Technische Universität München, Professur für Big Geospatial Data Management, Lise-Meitner-Str. 9, 85521 Ottobrunn
