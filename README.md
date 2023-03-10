@@ -7,7 +7,7 @@ AtlasHDF: An Efficient Big Data Framework for GeoAI
 
 ## Abstract
 
-In this paper, we introduce an efficient big data framework based on the modern HDF5 technology, called AtlasHDF, in which we designed lossless data mappings (immediate mapping and analysis-ready mapping) from OpenStreetMap (OSM) vector data into a single HDF5 data container to facilitate fast and flexible GeoAI applications learnt from OSM data. Since the HDF5 is included as a default dependency in most GeoAI and high performance computing (HPC) environments, the proposed AtlasHDF provides a cross-platformm and single-techonology solution of handling heterogeneous big geodata for GeoAI.
+In this project, we introduce an efficient big data framework based on the modern HDF5 technology, called AtlasHDF, in which we designed lossless data mappings (immediate mapping and analysis-ready mapping) from OpenStreetMap (OSM) vector data into a single HDF5 data container to facilitate fast and flexible GeoAI applications learnt from OSM data. Since the HDF5 is included as a default dependency in most GeoAI and high performance computing (HPC) environments, the proposed AtlasHDF provides a cross-platformm and single-techonology solution of handling heterogeneous big geodata for GeoAI.
 
 ![The overview of AtlasHDF, which consists of two main modules: (1) Immediate mapping of OSM data representation; (2) Analysis-ready Mapping for GeoAI](assets/overview_atlashdf.png)
 
