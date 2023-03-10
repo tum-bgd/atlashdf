@@ -3,11 +3,11 @@
 # -------------------------------------------------------------------------- #
 import atlashdf
 
-pbf_file = "../data/oberbayern-latest.osm.pbf"
-h5_file = "../data/oberbayern-water.h5"
+pbf_file = "../data/bayern-latest.osm.pbf"
+h5_file = "../data/bayern-water.h5"
 
 is_water_query = """
-.waterway != null or .natural == "water" or .natural == "wetland" or .water != null or .landuse=="water" or .landcover=="water"
+.natural == "water" or .water != null  or .waterway != null or .landuse=="basin"
 """
 
 x = atlashdf.AtlasHDF()
@@ -29,8 +29,10 @@ import atlashdf_rs
 import rasterio
 from PIL import Image
 
-h5_file = "../data/oberbayern-water.h5"
-sentinel_file = "../data/Sentinel-2/Oberbayer_10m_3035_10bands.tif"
+print(atlashdf_rs.proj_info())  # may need to link proj binary
+
+h5_file = "../data/bayern-water.h5"
+sentinel_file = "../data/Sentinel-2/Oberbayer_10m_3035_4bands.tif"
 mask_file = "../data/oberbayern-water-mask.tif"
 
 # FIXME: set right projection (EPSG:3035)
