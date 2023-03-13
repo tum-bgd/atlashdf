@@ -23,7 +23,7 @@ using Polygon = std::vector<Linestring>;
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
 
-template <typename dtype, int DIM, int CACHE_SIZE = 1024 * 1024 * 1024>
+template <typename dtype, int DIM, int CACHE_SIZE = 1024 * 1024>
 class IndirectionAppender {
 private:
   HighFive::DataSet &data, &index;
