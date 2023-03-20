@@ -1,3 +1,4 @@
+from pathlib import Path
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
@@ -19,6 +20,19 @@ from torchgeo.samplers import (
 from torchgeo.datamodules import GeoDataModule
 from torchgeo.trainers import SemanticSegmentationTask
 from pytorch_lightning import Trainer
+import rasterio as rio
+import geopandas as gp
+from shapely.geometry import box
+from sklearn.metrics import (
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+    accuracy_score,
+    f1_score,
+)
+
+
+DATA = Path(__file__).parent.joinpath("../data").resolve()
 
 
 class Sentinel2(RasterDataset):
@@ -79,8 +93,8 @@ class CustomDataset(IntersectionDataset):
     """Custom instersetion dataset with hardcoded dataset intialization."""
 
     def __init__(self, split="train", download=False, **kwargs):
-        sentinel = Sentinel2("../data/Sentinel-2", **kwargs)
-        mask = WaterMask("../data", **kwargs)
+        sentinel = Sentinel2(DATA.joinpath("Sentinel-2"), **kwargs)
+        mask = WaterMask(DATA, **kwargs)
         # FIXME: bad performance, needs some sort of caching and indexing
         # mask = DynamicMask(
         #     atlashdf="../data/oberbayern-water.h5", ds=sentinel, **kwargs
@@ -101,7 +115,9 @@ class CustomDataset(IntersectionDataset):
 
         # Get mask
         mask = sample["mask"][0].squeeze().numpy().round()
-        mask = mask.reshape((*mask.shape, 1)) # make torch lightning pass soundness checks
+        mask = mask.reshape(
+            (*mask.shape, 1)
+        )  # make torch lightning pass soundness checks
 
         # Plot the image
         fig, ax = plt.subplots(1, 2)
@@ -210,8 +226,50 @@ class CustomDataModule(GeoDataModule):
             )
 
 
-# torch.manual_seed(76)
+# --------------------------------------------------------------------------- #
+# config
+# --------------------------------------------------------------------------- #
 
+# basic configuration
+config = {
+    "model": "unet",
+    "backbone": "resnet34",
+    "weights": "imagenet",
+    "loss": "ce",
+    "batch_size": "64",
+    "patch_size": "64",
+    "samples": "2000",
+    "epochs": "10",
+    "lr": "0.1",
+}
+
+# make it configurable from the command line
+if __name__ == "__main__" and not callable(globals().get("get_ipython", None)):
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--model", help="Specify network model")
+    parser.add_argument("--backbone", help="Specify backbone")
+    parser.add_argument("--weights", help="Specify weights")
+    parser.add_argument("--loss", help="Specify loss")
+    parser.add_argument("--batch_size", help="Specify batch size")
+    parser.add_argument("--patch_size", help="Specify patch size")
+    parser.add_argument("--samples", help="Specify number of samples")
+    parser.add_argument("--epochs", help="Specify number of epochs")
+    parser.add_argument("--lr", help="Specify learning rate")
+
+    args = parser.parse_args()
+
+    # update config from commandline args
+    for (k, v) in vars(args).items():
+        if v is not None:
+            config[k] = v
+
+
+print(f"{config=}")
+
+# torch.manual_seed(76)
 
 # --------------------------------------------------------------------------- #
 # dataloader
@@ -220,9 +278,9 @@ class CustomDataModule(GeoDataModule):
 # setup datamodule
 datamodule = CustomDataModule(
     dataset_class=CustomDataset,
-    batch_size=64,
-    patch_size=64,
-    length=4000,
+    batch_size=int(config["batch_size"]),
+    patch_size=int(config["patch_size"]),
+    length=int(config["samples"]),
     num_workers=6,
 )
 
@@ -236,43 +294,41 @@ for batch in dataloader:
     dataset.plot(sample)
     plt.show()
 
-
 # --------------------------------------------------------------------------- #
 # training
 # --------------------------------------------------------------------------- #
 
 # setup segmentation task
 task = SemanticSegmentationTask(
-    model="unet",
-    backbone="resnet34",
-    weights="imagenet",
+    model=config["model"],
+    backbone=config["backbone"],
+    weights=config["weights"],
     in_channels=4,
     num_classes=2,
-    loss="ce",
+    loss=config["loss"],
     ignore_index=None,
-    learning_rate=0.1,
-    learning_rate_schedule_patience=5,
+    learning_rate=float(config["lr"]),
+    learning_rate_schedule_patience=6,
 )
 
 # setup trainer
 trainer = Trainer(
     accelerator="gpu",
     devices=1,
-    max_epochs=50,
-    default_root_dir="../data",
+    max_epochs=int(config["epochs"]),
+    default_root_dir=DATA,
     log_every_n_steps=10,
 )
 
 # train
 trainer.fit(model=task, datamodule=datamodule)
 
-
 # --------------------------------------------------------------------------- #
 # inference
 # --------------------------------------------------------------------------- #
 
 # make predictions
-predictions = trainer.predict(datamodule=datamodule)
+predictions = trainer.predict(datamodule=datamodule, ckpt_path='last')
 
 # assemble prediction patches
 datamodule.setup("predict")
@@ -294,16 +350,14 @@ for i, batch in enumerate(datamodule.predict_dataloader()):
 
         pred[row : row + p.shape[0], col : col + p.shape[1]] = p.astype("int8")
 
-plt.subplot()
-plt.imshow(pred)
-plt.show()
+# plt.subplot()
+# plt.imshow(pred)
+# plt.show()
 
 # save prediction
-import rasterio
 
-
-with rasterio.open(
-    "../data/prediction.tif",
+with rio.open(
+    DATA.joinpath("prediction.tif"),
     "w",
     driver="GTiff",
     height=height,
@@ -311,30 +365,22 @@ with rasterio.open(
     count=1,
     dtype=pred.dtype,
     crs=ds.crs,
-    transform=rasterio.Affine(
-        ds.res, 0.0, ds.bounds.minx, 0.0, -ds.res, ds.bounds.maxy
-    ),
+    transform=rio.Affine(ds.res, 0.0, ds.bounds.minx, 0.0, -ds.res, ds.bounds.maxy),
     # compress="JPEG", // FIXME: generates pseudo classes which break the training task
 ) as dst:
     dst.write(pred, 1)
 
-
 # --------------------------------------------------------------------------- #
 # validation
 # --------------------------------------------------------------------------- #
-import rasterio as rio
-import geopandas as gp
-from shapely.geometry import box
-from sklearn.metrics import f1_score
-
 
 # load predicion
-pred = rio.open("../data/prediction.tif")
+pred = rio.open(DATA.joinpath("prediction.tif"))
 values = pred.read(1)
 bounds = box(*pred.bounds)
 
 # load validation
-df = gp.read_file("../data/Validation_Bavaria/validations.shp")
+df = gp.read_file(DATA.joinpath("Validation_Bavaria/validations.shp"))
 
 # extract predition values
 df["pred"] = df.geometry.to_crs(pred.crs).centroid.apply(
@@ -343,8 +389,17 @@ df["pred"] = df.geometry.to_crs(pred.crs).centroid.apply(
 
 df = df[df["pred"].notnull()]  # filter
 
-# calculate f1 score
+# calculate metrics
 y_true = df["ValValue"].apply(lambda x: 1 if x == "5" else 0)
 y_pred = df["pred"]
 
-f1_score(y_true, y_pred)
+print(f"Precision: {precision_score(y_true, y_pred):.2f}")
+print(f"Recall:    {recall_score(y_true, y_pred):.2f}")
+print(f"Accuracy:  {accuracy_score(y_true, y_pred):.2f}")
+print(f"F1:        {f1_score(y_true, y_pred):.2f}")
+print(f"MCC:       {matthews_corrcoef(y_true, y_pred):.2f}")
+
+
+# --------------------------------------------------------------------------- #
+# plot
+# --------------------------------------------------------------------------- #
