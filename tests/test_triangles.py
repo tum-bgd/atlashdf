@@ -11,8 +11,8 @@ This exports all triangles into an OGC-compatible WKT file that can be read with
 
 
 def triangle_iterator(f, key):
-    p = f["%s_triangles" % (key)][:]  # all points
-    i = f["%s_triangles_idx" % (key)][:]  # indices
+    p = f[f"{key}_triangles"][:]  # all points
+    i = f[f"{key}_triangles_idx"][:]  # indices
     for j, (s, e) in tqdm(enumerate(i)):
         if (e - s) % 3 != 0:
             print("WARNING: This bug should have been closed")
@@ -28,7 +28,7 @@ def triangle_iterator(f, key):
 
 
 # Setup input and output path
-infile = sys.argv[1] if len(sys.argv) == 2 else "../data/berlin.h5"
+infile = sys.argv[1] if len(sys.argv) == 2 else "../data/bayern-water.h5"
 if not Path(infile).exists():
     raise RuntimeError(f"H5 file not found {infile}")
 
@@ -39,7 +39,7 @@ print("Converting %s => %s" % (infile, outfile))
 f = h5py.File(infile)["osm"]
 out = open(outfile, "w")
 
-for i, x in enumerate(triangle_iterator(f, "relations")):
+for x in triangle_iterator(f, "relations"):
     print(x, file=out)
-for i, x in enumerate(triangle_iterator(f, "ways")):
+for x in triangle_iterator(f, "ways"):
     print(x, file=out)

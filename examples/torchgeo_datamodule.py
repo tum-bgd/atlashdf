@@ -19,7 +19,8 @@ from torchgeo.samplers import (
 )
 from torchgeo.datamodules import GeoDataModule
 from torchgeo.trainers import SemanticSegmentationTask
-from pytorch_lightning import Trainer
+from lightning import Trainer
+from pytorch_lightning.loggers import TensorBoardLogger
 import rasterio as rio
 import geopandas as gp
 from shapely.geometry import box
@@ -51,42 +52,6 @@ class WaterMask(RasterDataset):
     filename_glob = "*mask.tif"
     is_image = False
     separate_files = False
-
-
-# import atlashdf_rs
-# class DynamicMask(GeoDataset):
-#     def __init__(self, atlashdf=None, ds=None, transforms=None):
-#         super().__init__(transforms)
-#         self.atlashdf = atlashdf
-#         self._crs = ds.crs
-#         self.res = ds.res
-#         self.index = ds.index
-
-#     def __getitem__(self, query):
-#         width = round((query.maxx - query.minx) / self.res)
-#         height = round((query.maxy - query.miny) / self.res)
-
-#         mask = atlashdf_rs.get_mask(
-#             width=width,
-#             height=height,
-#             bbox=[query.minx, query.miny, query.maxx, query.maxy],
-#             bbox_crs=self.crs.to_string(),
-#             collections=[
-#                 f"{self.atlashdf}/osm/ways_triangles",
-#                 f"{self.atlashdf}/osm/relations_triangles",
-#             ],
-#             crs=self.crs.to_string(),
-#         )
-
-#         mask = np.resize(mask, (1, height, width))
-#         mask = torch.tensor(mask.astype(np.int32)).long()
-
-#         sample = {"crs": self.crs, "bbox": query, "mask": mask}
-
-#         if self.transforms is not None:
-#             sample = self.transforms(sample)
-
-#         return sample
 
 
 class CustomDataset(IntersectionDataset):
@@ -233,13 +198,13 @@ class CustomDataModule(GeoDataModule):
 # basic configuration
 config = {
     "model": "unet",
-    "backbone": "resnet34",
+    "backbone": "resnet50",
     "weights": "imagenet",
     "loss": "ce",
     "batch_size": "64",
     "patch_size": "64",
-    "samples": "2000",
-    "epochs": "10",
+    "samples": "4000",
+    "epochs": "20",
     "lr": "0.1",
 }
 
@@ -262,14 +227,14 @@ if __name__ == "__main__" and not callable(globals().get("get_ipython", None)):
     args = parser.parse_args()
 
     # update config from commandline args
-    for (k, v) in vars(args).items():
+    for k, v in vars(args).items():
         if v is not None:
             config[k] = v
 
 
 print(f"{config=}")
 
-# torch.manual_seed(76)
+torch.manual_seed(76)
 
 # --------------------------------------------------------------------------- #
 # dataloader
@@ -281,7 +246,7 @@ datamodule = CustomDataModule(
     batch_size=int(config["batch_size"]),
     patch_size=int(config["patch_size"]),
     length=int(config["samples"]),
-    num_workers=6,
+    num_workers=4,
 )
 
 # plot some image and mask
@@ -311,6 +276,12 @@ task = SemanticSegmentationTask(
     learning_rate_schedule_patience=6,
 )
 
+logger = TensorBoardLogger(
+    DATA.joinpath("lightning_logs"),
+    name="{}-{}".format(config["model"], config["backbone"]),
+    version=config["samples"],
+)
+
 # setup trainer
 trainer = Trainer(
     accelerator="gpu",
@@ -318,6 +289,7 @@ trainer = Trainer(
     max_epochs=int(config["epochs"]),
     default_root_dir=DATA,
     log_every_n_steps=10,
+    logger=logger,
 )
 
 # train
@@ -328,7 +300,7 @@ trainer.fit(model=task, datamodule=datamodule)
 # --------------------------------------------------------------------------- #
 
 # make predictions
-predictions = trainer.predict(datamodule=datamodule, ckpt_path='last')
+predictions = trainer.predict(datamodule=datamodule, ckpt_path="last")
 
 # assemble prediction patches
 datamodule.setup("predict")
@@ -350,12 +322,7 @@ for i, batch in enumerate(datamodule.predict_dataloader()):
 
         pred[row : row + p.shape[0], col : col + p.shape[1]] = p.astype("int8")
 
-# plt.subplot()
-# plt.imshow(pred)
-# plt.show()
-
 # save prediction
-
 with rio.open(
     DATA.joinpath("prediction.tif"),
     "w",
@@ -393,6 +360,7 @@ df = df[df["pred"].notnull()]  # filter
 y_true = df["ValValue"].apply(lambda x: 1 if x == "5" else 0)
 y_pred = df["pred"]
 
+print("Model metrics\n")
 print(f"Precision: {precision_score(y_true, y_pred):.2f}")
 print(f"Recall:    {recall_score(y_true, y_pred):.2f}")
 print(f"Accuracy:  {accuracy_score(y_true, y_pred):.2f}")
@@ -403,3 +371,97 @@ print(f"MCC:       {matthews_corrcoef(y_true, y_pred):.2f}")
 # --------------------------------------------------------------------------- #
 # plot
 # --------------------------------------------------------------------------- #
+import rasterio as rio
+from rasterio.plot import reshape_as_image, show
+import numpy as np
+from matplotlib import pyplot as plt
+
+sentinel = rio.open(DATA.joinpath("Sentinel-2/Oberbayer_10m_3035_4bands.tif"))
+mask = rio.open(DATA.joinpath("oberbayern-water-mask.tif"))
+pred = rio.open(DATA.joinpath("prediction.tif"))
+gswl = rio.open(DATA.joinpath("GSWL/Oberbayer_occurrence_resampled_3035.tif"))
+
+# Reorder and rescale the image
+image = reshape_as_image(sentinel.read((3, 2, 1)))
+image = np.clip(image * 0.13, 0, 255)  # brighten
+image = (image - image.min()) / (image.max() - image.min())  # normalize
+
+# Get mask and pediction
+m = np.squeeze(mask.read(1)).round()
+p = np.squeeze(pred.read(1)).round()
+r = np.squeeze(gswl.read(1) * 0.5).round()
+
+size = 256
+
+l = np.random.rand(6, 2) * (min(m.shape) - size)
+l = l.astype("int")
+l[1]
+
+# selection
+l = np.array(
+    [
+        [15302, 10720],
+        [4783, 856],
+        [15688, 6356],
+        [14490, 16631],
+        [14276, 4348],
+        [13725, 17206],
+    ]
+)
+
+# Plot the selected examples [3 x 8]
+fig, axs = plt.subplots(nrows=3, ncols=8, figsize=(12, 5.5))
+for i in range(3):
+    for j in range(2):
+        n = i * 2 + j
+        x, y = l[n, 0], l[n, 1]
+        axs[i, j * 4].imshow(image[x : x + size, y : y + size, :])
+        axs[i, j * 4].set_title(f"Sentinel 2 [{n + 1}]")
+        axs[i, j * 4].axis("off")
+        axs[i, j * 4 + 1].imshow(m[x : x + size, y : y + size])
+        axs[i, j * 4 + 1].set_title(f"Mask [{n + 1}]")
+        axs[i, j * 4 + 1].axis("off")
+        axs[i, j * 4 + 2].imshow(p[x : x + size, y : y + size])
+        axs[i, j * 4 + 2].set_title(f"Prediction [{n + 1}]")
+        axs[i, j * 4 + 2].axis("off")
+        axs[i, j * 4 + 3].imshow(r[x : x + size, y : y + size])
+        axs[i, j * 4 + 3].set_title(f"GSWL [{n + 1}]")
+        axs[i, j * 4 + 3].axis("off")
+fig.tight_layout()
+fig.subplots_adjust(hspace=0)
+plt.show()
+
+
+# --------------------------------------------------------------------------- #
+# reference
+# --------------------------------------------------------------------------- #
+
+# Global Surface Water Mapping (GSWL)
+gswl = rio.open(DATA.joinpath("GSWL/Oberbayer_occurrence_resampled_3035.tif"))
+values = gswl.read(1)
+bounds = box(*gswl.bounds)
+
+# load validation
+df = gp.read_file(DATA.joinpath("Validation_Bavaria/validations.shp"))
+
+# extract gswl values
+df["pred"] = df.geometry.to_crs(gswl.crs).centroid.apply(
+    lambda p: None
+    if not bounds.contains(p)
+    else 1
+    if values[gswl.index(p.x, p.y)] > 0
+    else 0
+)
+
+df = df[df["pred"].notnull()]  # filter
+
+# calculate metrics
+y_true = df["ValValue"].apply(lambda x: 1 if x == "5" else 0)
+y_pred = df["pred"]
+
+print("GSWL metrics\n")
+print(f"Precision: {precision_score(y_true, y_pred):.2f}")
+print(f"Recall:    {recall_score(y_true, y_pred):.2f}")
+print(f"Accuracy:  {accuracy_score(y_true, y_pred):.2f}")
+print(f"F1:        {f1_score(y_true, y_pred):.2f}")
+print(f"MCC:       {matthews_corrcoef(y_true, y_pred):.2f}")
