@@ -1,7 +1,9 @@
 #ifndef OSM_RESOLVEGEOM
-#define OSM_RESOLVGEOM
+#define OSM_RESOLVEGEOM
 
 bool resolve_osm_geometry(std::string inputfile, std::string output,
-                          std::string method, std::string nodes_query=".",std::string ways_query=".",std::string relations_query=".");
+                          std::string method, std::string nodes_query = ".",
+                          std::string ways_query = ".",
+                          std::string relations_query = ".");
 
 #endif

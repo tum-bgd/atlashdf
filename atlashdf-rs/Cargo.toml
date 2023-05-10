@@ -1,0 +1,22 @@
+[package]
+name = "atlashdf-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "atlashdf_rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+euc = "0.5.3"
+hdf5 = "0.8.1"
+numpy = "0.18.0"
+ndarray = "0.15.6"
+proj = { version = "0.27.0", features = ["bundled_proj"] }
+pyo3 = { version = "0.18.1", features = ["extension-module"] }
+
+[dev-dependencies]
+image = "0.24.5"
+minifb = "0.23.0"
+georaster = { git = "https://github.com/pka/georaster.git" }

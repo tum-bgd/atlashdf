@@ -58,7 +58,7 @@ earcut(std::vector<std::vector<std::vector<double>>> polygon) {
 };
 
 std::vector<std::vector<double>>
-martin(std::vector<std::vector<std::vector<double>>> coords) {
+boost(std::vector<std::vector<std::vector<double>>> coords) {
   /*
   Strategy: Build all cells of Delaunay triangulation and check if they are
   "within" the polygon given. Not fastest, but easiest to implement, hence,

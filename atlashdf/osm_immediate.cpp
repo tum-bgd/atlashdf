@@ -1,18 +1,16 @@
-#include <iostream>
-#include <algorithm>
-#include <iomanip>
-#include <sstream>
+#include "osm_immediate.h"
 
 #include <osmpbfreader.h>
 #include <picojson.h>
 
-#include "osm_immediate.h"
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
 #include "atlashdftools.h"
 
 using namespace osmpbfreader;
-
-
-
 
 // from osmpbfreader.h
 // typedef std::map<std::string, std::string> Tags;
@@ -68,9 +66,9 @@ struct Visitor {
   atlas::AtlasGroup g;
   atlas::ChunkedOSMImmediateWriter imwriter;
 #ifdef HAVE_JQ
-  void set_jq_nodes(std::string s){imwriter.set_jq_nodes(s);};
-  void set_jq_ways(std::string s){imwriter.set_jq_ways(s);};
-  void set_jq_relations(std::string s){imwriter.set_jq_relations(s);};
+  void set_jq_nodes(std::string s) { imwriter.set_jq_nodes(s); };
+  void set_jq_ways(std::string s) { imwriter.set_jq_ways(s); };
+  void set_jq_relations(std::string s) { imwriter.set_jq_relations(s); };
 #endif
   Visitor(std::string filename, std::string group, size_t chunksize)
       : g(filename, group), imwriter(g, chunksize) {}
@@ -102,14 +100,14 @@ struct Visitor {
 
 // WIP: other queries need to be transported.
 void import_osm_immediate(std::string input, std::string output,
-                          size_t chunksize, std::string nodes_query,std::string ways_query,std::string relations_query) {
-
+                          size_t chunksize, std::string nodes_query,
+                          std::string ways_query, std::string relations_query) {
   Visitor v(output, "osm", chunksize);
-  #ifdef HAVE_JQ
+#ifdef HAVE_JQ
   v.set_jq_nodes(nodes_query);
   v.set_jq_ways(ways_query);
   v.set_jq_relations(relations_query);
-  #endif
+#endif
   try {
     read_osm_pbf(input, v);
   } catch (interrupt i) {

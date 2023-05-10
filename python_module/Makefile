@@ -1,9 +1,18 @@
-build:
-	sudo rm -Rf atlashdf* build
+all: clean jq build
+
+jq:
+	autoreconf -fi jq
+	cd jq && ./configure --disable-maintainer-mode
+	make -C jq
+
+build: clean
 	sudo python3 setup.py develop
 
-docker:
-	docker build -f ../Dockerfile -t atlashdf ../.
+wheel: clean
+	sudo python3 setup.py bdist_wheel
 
-run:
-	docker run -it -p 8888:8888 atlashdf
+install:
+	pip install dist/*.whl --force-reinstall
+
+clean:
+	sudo rm -rf atlashdf* build dist
