@@ -49,7 +49,7 @@ RUN python3 setup.py bdist_wheel
 # Then, you can install this beast (but be sure to have all shared objects or use auditwheel to repair it)
 
 
-FROM jupyter/tensorflow-notebook AS jupyter
+FROM jupyter/tensorflow-notebook:python-3.10.9 AS jupyter
 
 USER root
 

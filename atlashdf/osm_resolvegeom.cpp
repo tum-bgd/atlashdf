@@ -23,7 +23,7 @@ using Polygon = std::vector<Linestring>;
 // struct IndirectionAppender(std::string data_name, std::string index_name,
 // std::vector<double> row)
 
-template <typename dtype, int DIM, int CACHE_SIZE = 1024 * 1024>
+template <typename dtype, int DIM, int CACHE_SIZE = 1024 * 1024 * 1024>
 class IndirectionAppender {
 private:
   HighFive::DataSet &data, &index;
@@ -202,9 +202,11 @@ void _resolve_osm_ways(std::string inputfile, std::string method,
     if ((double)i / (double)n_ways > 0.01)
       break;
 #endif
+#ifdef SHOW_PROGRESS
     if (i % 100 == 0)
       std::cout << "Progress: " << (double)i / (double)n_ways << "\r";
     std::cout.flush();
+#endif
   }
 }
 
@@ -345,9 +347,11 @@ void _resolve_osm_relations(std::string inputfile, std::string method,
     if ((double)i / (double)n_ways > 0.01)
       break;
 #endif
+#ifdef SHOW_PROGRESS
     if (i % 100 == 0)
       std::cout << "Progress: " << (double)i / (double)n_relations << "\r";
     std::cout.flush();
+#endif
   }
 }
 
